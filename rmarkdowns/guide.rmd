@@ -1,0 +1,1629 @@
+
+---
+title: "The Ultimate Question Analysis Guide"
+author: "Parsa"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 4
+    number_sections: true
+---
+
+# The Ultimate Question Analysis Guide
+
+**What this is:** A routing guide. Every question type you might face is mapped to the exact method, R command, and cheatsheet section that solves it.
+
+**How to use it:**
+1. Read the question once.
+2. Find the **verb** (Part 2) or the **keyword** (Part 1).
+3. Jump to the topic decision tree.
+4. Follow the branch until you reach a "do this" cell.
+5. Open the corresponding cheatsheet section and execute.
+6. Output in the shape shown in Part 12.
+
+**Rule:** If you can find your question in this guide, you can solve it. If you can't, the question is out of scope.
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+library(tidyverse)
+```
+
+# Part 0 — The Meta-Strategy
+
+## 0.1 The 4-step reading protocol
+
+For **every** question, do these four things before writing any code:
+
+1. **Underline the verb.** What is the question asking you to *do*? (Fit? Test? Estimate? Compare? Forecast? Interpret?)
+2. **Circle the nouns.** What are the variables? Which is the response? Which are predictors? How many? What types (continuous, categorical, count, binary, time-indexed)?
+3. **Identify the design.** One sample? Multiple groups? Repeated measures? Time series? Two variables? Many variables?
+4. **Pick the output shape.** Point estimate? Interval? Test statistic? Model object? Plot? Two numbers? Table?
+
+**Then** open the relevant decision tree below.
+
+## 0.2 The universal fallback
+
+If you can't classify the question immediately:
+
+| If the question has… | Then try… |
+|---|---|
+| One numeric response, one numeric predictor | Regression (Part 4) |
+| One numeric response, one categorical predictor | ANOVA (Part 6) |
+| One numeric response, multiple predictors | Regression (Part 4) or ANOVA (Part 6) |
+| Two categorical variables | Categorical (Part 9) |
+| Multiple numeric responses | Multivariate (Part 7) |
+| A time index | Time series (Part 3) |
+| A finite population + sample | Sampling (Part 8) |
+| A data file to clean first | Data handling (Part 5) |
+| A binary response | Categorical (Part 9) or Regression (Part 4, logistic) |
+| A count response | Regression (Part 4, Poisson) |
+
+## 0.3 The five question shapes
+
+Every exam question is one of these five shapes:
+
+| Shape | Typical verbs | Output |
+|---|---|---|
+| **Describe** | describe, discuss, plot, summarise | Words + plot + numbers |
+| **Estimate** | estimate, compute, calculate | Point + SE + CI |
+| **Test** | test, is there, does, compare | Statistic + df + p + conclusion |
+| **Model** | fit, build, select, choose | Model object + coefficients |
+| **Predict** | predict, forecast | Point + PI |
+
+If your question starts with a verb not in this table, it's a compound question. Break it into these five shapes.
+
+## 0.4 When to stop and think
+
+Stop before coding if any of these are true:
+
+- The question has **more than 20 words** of setup.
+- The question asks you to **explain why**.
+- The question mentions **"assumptions"** or **"check"**.
+- The question says **"compare"**.
+- The question says **"interpret"**.
+
+These are the questions where students lose marks by rushing to code.
+
+---
+
+# Part 1 — Keyword Index
+
+Search the question for any of these words. The right column tells you where to go.
+
+## 1.1 Statistical keywords
+
+| Keyword in question | Topic | Section |
+|---|---|---|
+| Stationary, unit root, ADF | Time series | 3 |
+| ACF, PACF, autocorrelation | Time series | 3 |
+| Forecast, h steps ahead | Time series | 3 |
+| Seasonal, period, frequency | Time series | 3 |
+| ARIMA, AR, MA, SARIMA | Time series | 3 |
+| GARCH, volatility, ARCH | Time series | 3 |
+| Slope, intercept, R² | Regression | 4 |
+| Residuals, fitted values | Regression | 4 |
+| Multicollinearity, VIF | Regression | 4 |
+| Interaction, effect modification | Regression / ANOVA | 4, 6 |
+| ANCOVA, covariate | Regression / ANOVA | 4, 6 |
+| Box-Cox, transformation | Regression | 4 |
+| Logistic, odds ratio, binary | Regression / Categorical | 4, 9 |
+| Poisson, count, rate | Regression | 4 |
+| Overdispersion | Regression | 4 |
+| Ridge, lasso, penalized | Regression | 4 |
+| Group means, treatment effect | ANOVA | 6 |
+| Blocking, block, RCBD | ANOVA | 6 |
+| Factor, factorial, level | ANOVA | 6 |
+| Split-plot, whole-plot | ANOVA | 6 |
+| Repeated measures, within-subject | ANOVA | 6 |
+| Mixed model, random effect | ANOVA | 6 |
+| Post-hoc, Tukey, Bonferroni | ANOVA | 6 |
+| Effect size, eta-squared | ANOVA | 6 |
+| Power, sample size | ANOVA / Sampling | 6, 8 |
+| Randomization, replication | ANOVA | 6 |
+| Latin Square, BIBD | ANOVA | 6 |
+| Fractional factorial, resolution | ANOVA | 6 |
+| Mean vector, MANOVA | Multivariate | 7 |
+| Hotelling, Wilks, Pillai | Multivariate | 7 |
+| Multivariate normality, Mardia | Multivariate | 7 |
+| PCA, principal component | Multivariate | 7 |
+| Factor analysis, latent, loadings | Multivariate | 7 |
+| Discriminant, LDA, QDA | Multivariate | 7 |
+| Cluster, k-means, dendrogram | Multivariate | 7 |
+| Mahalanobis, multivariate outlier | Multivariate | 7 |
+| Canonical correlation | Multivariate | 7 |
+| SRS, simple random | Sampling | 8 |
+| Stratified, stratum, strata | Sampling | 8 |
+| Cluster sampling | Sampling | 8 |
+| Systematic sampling | Sampling | 8 |
+| FPC, finite population correction | Sampling | 8 |
+| Bias, MSE, relative efficiency | Sampling | 8 |
+| Coverage, confidence interval | Sampling | 8 |
+| Ratio estimator, regression estimator | Sampling | 8 |
+| PPS, size-biased | Sampling | 8 |
+| Horvitz-Thompson | Sampling | 8 |
+| Design effect, deff | Sampling | 8 |
+| Contingency table, cross-tab | Categorical | 9 |
+| Chi-square, independence | Categorical | 9 |
+| Homogeneity, goodness-of-fit | Categorical | 9 |
+| Fisher exact | Categorical | 9 |
+| McNemar, paired binary | Categorical | 9 |
+| Cochran's Q | Categorical | 9 |
+| Cramér's V, phi | Categorical | 9 |
+| Mantel-Haenszel | Categorical | 9 |
+| Simpson's paradox | Categorical | 9 |
+| Log-linear | Categorical | 9 |
+| Clean, tidy, reshape, merge | Data handling | 5 |
+| Missing, NA, impute | Data handling | 5 |
+| Outliers | Data handling | 5 |
+
+## 1.2 Mathematical keywords
+
+| Keyword | Meaning | Action |
+|---|---|---|
+| "Derive" | Prove a formula | Show steps, use algebra |
+| "Show that" | Prove a property | Start from definition, manipulate |
+| "Verify" | Check numerically | Compute both sides |
+| "Justify" | Explain the choice | Cite assumption or theorem |
+| "Interpret" | Explain in context | Say what the number means for the data |
+| "State" | Give without proof | One line, no justification |
+| "Compute" | Numerical answer | Show formula, plug in, give number |
+| "Approximate" | Use CLT or asymptotics | Note the approximation |
+
+---
+
+# Part 2 — Question Shape Classifier
+
+## 2.1 By verb
+
+| The question says… | You should… | Output |
+|---|---|---|
+| "Describe" | EDA: summary stats + plot | Paragraph + table |
+| "Discuss" | EDA + interpretation | Paragraph |
+| "Plot" | `ggplot` or base plot | Plot |
+| "Summarise" | `group_by %>% summarise` | Table |
+| "Estimate" | Point estimate + SE + CI | Number + interval |
+| "Compute" | Exact calculation | Number |
+| "Calculate" | Exact calculation | Number |
+| "Test" | Hypothesis test | Statistic, df, p, conclusion |
+| "Is there" | Hypothesis test | Same |
+| "Does" | Hypothesis test | Same |
+| "Compare" | Test of difference | Same + effect size |
+| "Is it significant" | Hypothesis test | Same |
+| "Fit" | Model fitting | Model object + coefficients |
+| "Build" | Model fitting | Same |
+| "Select" / "Choose" | Model selection | AIC/BIC or CV result |
+| "Predict" | `predict()` | Point + interval |
+| "Forecast" | `forecast()` | Point + PI |
+| "Check" | Diagnostics | Plots + tests |
+| "Assess" | Diagnostics | Same |
+| "Interpret" | Translate coefficient/statistic | Sentence |
+| "Explain" | Explain mechanism | Paragraph |
+| "Why" | Explain mechanism | Paragraph |
+| "Design" | Design an experiment | Design table |
+| "Simulate" | Monte Carlo | Code + summary |
+| "Derive" | Mathematical proof | Algebra |
+| "Sketch" | Draw a rough plot | Hand-drawn or code |
+| "State" | Give a fact | One-line answer |
+
+## 2.2 By question structure
+
+| Structure | Type |
+|---|---|
+| "Is X related to Y?" | Association test |
+| "Do groups differ?" | Group comparison |
+| "Does X affect Y?" | Effect estimation |
+| "What is the effect of X on Y?" | Effect estimation |
+| "Can we predict Y from X?" | Regression / prediction |
+| "How many X do we need?" | Sample size |
+| "What is the best model?" | Model selection |
+| "Is the model adequate?" | Diagnostics |
+| "What does this coefficient mean?" | Interpretation |
+| "Describe the relationship" | EDA + regression |
+
+## 2.3 By data shape
+
+| Data has… | Likely topic |
+|---|---|
+| One numeric column, one time column | Time series |
+| Multiple rows per unit, times as columns | Repeated measures / wide to long |
+| One row per unit, two+ numeric columns | Regression or multivariate |
+| One numeric column, one grouping column | ANOVA |
+| Two categorical columns | Categorical |
+| One column with NAs | Missing data |
+| One column with weird strings | Data cleaning |
+| IDs and measurements | Merging |
+
+---
+
+# Part 3 — Time Series Decision Tree
+
+## 3.1 Overall flow
+
+**Q: Is there a time index?**
+- Yes → continue.
+- No → not a time series question.
+
+**Q: What does the question ask?**
+
+| Sub-question | Go to |
+|---|---|
+| Plot / describe | 3.2 |
+| Stationary? | 3.3 |
+| Suggest a model | 3.4 |
+| Fit a model | 3.5 |
+| Check adequacy | 3.6 |
+| Forecast | 3.7 |
+| Missing values | 3.8 |
+| Compare models | 3.9 |
+| Seasonal | 3.10 |
+| Derive theory | 3.11 |
+
+## 3.2 "Plot and describe"
+
+| What you see | What you say |
+|---|---|
+| Upward drift | "Upward trend" |
+| Repeating cycle | "Seasonality with period s" |
+| Amplitude grows with level | "Multiplicative seasonality; consider log transform" |
+| Stable mean and variance | "Stationary-looking" |
+| Sharp spike | "Possible outlier at time t" |
+| Sudden level change | "Structural break" |
+
+**Code:**
+```r
+autoplot(ts_y) + theme_minimal()
+ggseasonplot(ts_y)      # if frequency > 1
+ggsubseriesplot(ts_y)
+```
+
+**Output:** 2–3 sentence paragraph.
+
+## 3.3 "Is the series stationary?"
+
+**Step 1:** Plot it. Look for trend or changing variance.
+**Step 2:** Run `adf.test(ts_y)` and `kpss.test(ts_y)`.
+**Step 3:** If they disagree, look at the ACF.
+
+| ADF p | KPSS p | Conclusion |
+|---|---|---|
+| < 0.05 | > 0.05 | Stationary |
+| > 0.05 | < 0.05 | Non-stationary; difference |
+| < 0.05 | < 0.05 | Contradiction; look at plots |
+| > 0.05 | > 0.05 | Ambiguous; investigate |
+
+**If non-stationary:**
+```r
+dy <- diff(ts_y)
+# re-test dy
+```
+
+**Output:** "The series is [stationary / non-stationary] at the 5% level based on the ADF test (p = ...). After first differencing, stationarity is achieved (ADF p = ...)."
+
+## 3.4 "Suggest a model"
+
+**Step 1:** Check stationarity (3.3).
+**Step 2:** If non-stationary, difference first.
+**Step 3:** Plot ACF and PACF.
+
+| ACF pattern | PACF pattern | Model |
+|---|---|---|
+| Cuts after q | Tails off | MA(q) |
+| Tails off | Cuts after p | AR(p) |
+| Both cut | Both cut | ARMA(p, q) |
+| Both tail off | Both tail off | ARMA(1,1) |
+| Slow decay | Slow decay | ARIMA(p, 1, q) |
+| Spike at lag s | — | Seasonal MA |
+| — | Spike at lag s | Seasonal AR |
+
+**Code:**
+```r
+acf(ts_y, main = "ACF")
+pacf(ts_y, main = "PACF")
+```
+
+**Output:** "The ACF cuts off after lag 2; PACF tails off. Suggest MA(2)."
+
+## 3.5 "Fit a model"
+
+| If they specify order | Do |
+|---|---|
+| "Fit AR(1)" | `Arima(ts_y, order = c(1, 0, 0))` |
+| "Fit MA(2)" | `Arima(ts_y, order = c(0, 0, 2))` |
+| "Fit ARMA(1,1)" | `Arima(ts_y, order = c(1, 0, 1))` |
+| "Fit ARIMA(p,d,q)" | `Arima(ts_y, order = c(p, d, q))` |
+| "Fit the best model" | `auto.arima(ts_y)` |
+| "Fit a seasonal model" | `auto.arima` handles it |
+
+**Output:** Model summary + coefficients + AIC.
+
+## 3.6 "Is the model adequate?"
+
+**Step 1:** `checkresiduals(fit)`.
+**Step 2:** Look at residual ACF and Ljung-Box.
+
+| Ljung-Box p | Conclusion |
+|---|---|
+| > 0.05 | Adequate |
+| < 0.05 | Residual structure remains |
+
+**Also check:**
+- Normality: `shapiro.test(residuals(fit))`.
+- No visible pattern in residuals over time.
+
+**Output:** "Ljung-Box p = ...; residuals show no significant autocorrelation. Model is adequate."
+
+## 3.7 "Forecast h steps"
+
+```r
+fc <- forecast(fit, h = 10)
+fc
+autoplot(fc) + theme_minimal()
+```
+
+**Output:**
+- Point forecast at each horizon.
+- 80% and 95% prediction intervals.
+- Sentence: "The forecast for time T+1 is X with 95% PI [L, U]. The interval widens with horizon."
+
+**Common trap:** Forgetting that intervals widen with h.
+
+## 3.8 "Handle missing values"
+
+| Situation | Action |
+|---|---|
+| Few missing | `auto.arima` handles them via Kalman filter |
+| Many missing | Impute or use `na.interp` |
+| Question asks for interpolation | `na.interp(ts_y)` |
+
+**Output:** "The Kalman filter estimates the likelihood using only observed values. Coefficient estimates are consistent."
+
+## 3.9 "Compare models"
+
+| Comparison type | Method |
+|---|---|
+| Nested (e.g., AR(1) vs AR(2)) | Likelihood ratio test |
+| Non-nested | AIC / BIC |
+| Both | Report both |
+
+**Output:** Table with AIC, BIC, log-likelihood. Say which wins and why.
+
+## 3.10 "Seasonal / frequency > 1"
+
+**Check:** Does the data have `frequency = 12` (monthly) or `frequency = 4` (quarterly)?
+
+**Model:** SARIMA$(p,d,q)(P,D,Q)_s$.
+- Seasonal difference: `diff(ts_y, lag = s)`.
+- `auto.arima` picks P, D, Q automatically.
+
+**Output:** "The fitted model is SARIMA$(1,1,1)(1,1,1)_{12}$."
+
+## 3.11 Theory questions
+
+| Question | Answer approach |
+|---|---|
+| "Derive ACF of AR(1)" | Use Yule-Walker; $\rho(k) = \phi^k$ |
+| "Show AR(1) is stationary iff..." | Root of $\phi(z) = 0$ outside unit circle |
+| "Write the likelihood of AR(1)" | $y_1 \sim N(\mu, \sigma^2/(1-\phi^2))$; $y_t \mid y_{t-1}$ normal |
+| "Explain differencing" | Removes stochastic trend; converts random walk to white noise |
+
+**Cross-reference:** Time series cheatsheet Part 22.
+
+---
+
+# Part 4 — Regression Decision Tree
+
+## 4.1 Overall flow
+
+**Q: Is the response continuous, binary, or count?**
+- Continuous → `lm()`.
+- Binary → `glm(family = binomial)`.
+- Count → `glm(family = poisson)` or `MASS::glm.nb`.
+- Time-to-event → survival (likely out of scope).
+
+**Q: How many predictors?**
+- One → simple regression.
+- Multiple → multiple regression.
+
+**Q: Any categorical predictors?**
+- Yes → dummy variables or factor.
+
+**Q: Any interactions?**
+- Yes → `y ~ A * B`.
+
+## 4.2 By question type
+
+| Sub-question | Go to |
+|---|---|
+| Fit a model | 4.3 |
+| Interpret coefficients | 4.4 |
+| Test if coefficient is zero | 4.5 |
+| Test multiple coefficients | 4.6 |
+| Compare models | 4.7 |
+| Check assumptions | 4.8 |
+| Predict | 4.9 |
+| Transform response | 4.10 |
+| Handle categorical predictors | 4.11 |
+| Interaction | 4.12 |
+| Logistic regression | 4.13 |
+| Poisson regression | 4.14 |
+
+## 4.3 "Fit a model"
+
+**Simple:** `lm(y ~ x, data = df)`.
+**Multiple:** `lm(y ~ x1 + x2 + x3, data = df)`.
+**With interaction:** `lm(y ~ x1 * x2, data = df)`.
+**With factor:** `lm(y ~ factor(group), data = df)`.
+
+**Output:** `summary(fit)` — coefficients with SE, t, p; R²; F.
+
+## 4.4 "Interpret coefficients"
+
+For each coefficient:
+
+| Type | Template |
+|---|---|
+| Intercept | "Predicted y when all predictors are 0." |
+| Continuous slope | "A 1-unit increase in x is associated with a β-unit change in y, holding others fixed." |
+| Dummy (level B vs ref A) | "Group B has mean y β-units different from reference group A." |
+| Interaction | "The effect of x1 on y changes by β per unit increase in x2." |
+| Log-transformed y | "A 1-unit increase in x multiplies y by exp(β)." |
+| Log-log | "A 1% increase in x is associated with a β% change in y." |
+
+## 4.5 "Is x significant?"
+
+**Single coefficient:** Look at t-test in `summary(fit)`.
+
+| p-value | Conclusion |
+|---|---|
+| < 0.05 | x is significantly associated with y |
+| ≥ 0.05 | No significant evidence |
+
+**Report:** $t(df) = ...$, $p = ...$.
+
+## 4.6 "Test multiple coefficients jointly"
+
+**Nested model comparison:**
+```r
+anova(lm(y ~ x1, data = df), lm(y ~ x1 + x2 + x3, data = df))
+```
+
+**Linear restriction:**
+```r
+car::linearHypothesis(fit, "x1 = x2")
+car::linearHypothesis(fit, "x1 + x2 = 5")
+```
+
+**Output:** F-statistic, df, p-value.
+
+## 4.7 "Compare models"
+
+| Models | Method |
+|---|---|
+| Nested | `anova(reduced, full)` |
+| Non-nested | AIC / BIC |
+| Same df, different predictors | Adjusted R² |
+| Cross-validation | `cv.glm` or manual |
+
+## 4.8 "Check assumptions"
+
+| Assumption | Test | Fix |
+|---|---|---|
+| Linearity | Residuals vs fitted | Add polynomial, transform |
+| Normality | Shapiro-Wilk on residuals | Transform, robust SE |
+| Homoskedasticity | Breusch-Pagan | WLS, robust SE |
+| Independence | Durbin-Watson | AR model, GLS |
+| No multicollinearity | VIF | Drop, ridge |
+| No influential points | Cook's D | Report with/without |
+
+**Output:** Paragraph + plots.
+
+## 4.9 "Predict for new data"
+
+```r
+newdf <- data.frame(x = 5)
+predict(fit, newdf, interval = "confidence")   # mean response
+predict(fit, newdf, interval = "prediction")   # new observation
+```
+
+**Report:** "Point prediction = X. 95% CI for mean = [L, U]. 95% PI for new obs = [L, U]."
+
+**Trap:** CI for mean is narrower than PI for a new observation.
+
+## 4.10 "Try lambda = -2, -1, 0, 1, 2" (Box-Cox)
+
+Loop over lambdas, compare log-likelihood or R².
+
+| Best lambda | Transform |
+|---|---|
+| 1 | None |
+| 0 | log |
+| 0.5 | sqrt |
+| -1 | 1/y |
+
+**Code:**
+```r
+boxCox(lm(y ~ x, data = df))
+```
+
+**Output:** Table of lambda → logLik. Pick the max.
+
+## 4.11 "Categorical predictor"
+
+**Factors:**
+```r
+df$group <- factor(df$group, levels = c("ref", "level1", "level2"))
+lm(y ~ group, data = df)
+```
+
+**Output:** Intercept = mean of reference; other coefficients = differences.
+
+**If reference changes:**
+```r
+df$group <- relevel(df$group, ref = "level1")
+```
+
+## 4.12 "Interaction"
+
+| Question | Model |
+|---|---|
+| Does effect of x depend on group? | `y ~ x * group` |
+| Does effect of x1 depend on x2? | `y ~ x1 * x2` |
+| Test interaction | `anova(y ~ x1 + x2, y ~ x1 * x2)` |
+
+**Interpretation when interaction is significant:** Main effects are conditional on the other variable being at its reference/zero.
+
+## 4.13 "Logistic regression"
+
+| Sub-question | Action |
+|---|---|
+| Fit model | `glm(y ~ x, family = binomial)` |
+| Odds ratio | `exp(coef(fit))` |
+| CI for OR | `exp(confint(fit))` |
+| Predict probability | `predict(fit, newdata, type = "response")` |
+| Compare models | `anova(reduced, full, test = "Chisq")` |
+| Grouped binomial | `glm(cbind(succ, fail) ~ x, family = binomial)` |
+
+**Output:** OR + CI + interpretation in terms of odds.
+
+## 4.14 "Poisson regression"
+
+| Sub-question | Action |
+|---|---|
+| Fit model | `glm(y ~ x, family = poisson)` |
+| Rate ratio | `exp(coef(fit))` |
+| Overdispersion check | Pearson χ² / df |
+| Fix overdispersion | `family = quasipoisson` or `MASS::glm.nb` |
+| Offset (rate model) | `glm(y ~ x + offset(log(time)), family = poisson)` |
+
+**Output:** Rate ratio + CI + interpretation in terms of counts/rates.
+
+---
+
+# Part 5 — Data Handling Decision Tree
+
+## 5.1 By task
+
+| Sub-task | Go to |
+|---|---|
+| Read a file | 5.2 |
+| Inspect data | 5.3 |
+| Fix types | 5.4 |
+| Handle missing values | 5.5 |
+| Select / rename columns | 5.6 |
+| Filter / sort rows | 5.7 |
+| Group summaries | 5.8 |
+| Reshape wide ↔ long | 5.9 |
+| Merge / join | 5.10 |
+| Train / test split | 5.11 |
+| Outliers | 5.12 |
+
+## 5.2 "Read the file"
+
+| File type | Command |
+|---|---|
+| Excel | `read_excel("f.xls", sheet = 1)` |
+| CSV | `read_csv("f.csv")` |
+| SPSS | `read_sav("f.sav")` |
+| Text | `read_table("f.txt")` |
+
+**After reading, always:**
+```r
+dim(df); str(df); head(df); colSums(is.na(df))
+```
+
+## 5.3 "Inspect the data"
+
+| Question | Command |
+|---|---|
+| How many rows / cols? | `dim(df)`, `nrow(df)`, `ncol(df)` |
+| Column names? | `names(df)` |
+| Column types? | `str(df)`, `glimpse(df)`, `sapply(df, class)` |
+| Sample values? | `head(df)`, `tail(df)` |
+| Summary stats? | `summary(df)` |
+| Missing count? | `colSums(is.na(df))` |
+| Unique values? | `unique(df$col)`, `n_distinct(df$col)` |
+
+**Output:** 1–2 sentence summary.
+
+## 5.4 "Fix column types"
+
+| Situation | Command |
+|---|---|
+| Character → numeric | `as.numeric(x)` |
+| Character → factor | `factor(x, levels = ...)` |
+| Factor → character | `as.character(x)` |
+| Character → Date | `as.Date(x, format = ...)` |
+| Numeric-coded group | `factor(x, levels = ...)` |
+
+**Trap:** `as.numeric(factor)` returns level codes, not original values. Use `as.numeric(as.character(f))`.
+
+## 5.5 "Handle missing values"
+
+| Question | Action |
+|---|---|
+| "Remove missing" | `drop_na(df)` or `na.omit(df)` |
+| "Replace with mean" | `df$x[is.na(df$x)] <- mean(df$x, na.rm = TRUE)` |
+| "Use functions with na.rm" | `mean(x, na.rm = TRUE)` |
+| "Impute" | `mice`, `na.interp`, or interpolation |
+| "Report missingness" | `colSums(is.na(df)) / nrow(df)` |
+
+**Output:** Report fraction missing and approach.
+
+## 5.6 "Select / rename columns"
+
+| Task | Command |
+|---|---|
+| Select by name | `select(df, x, y)` |
+| Select by pattern | `select(df, starts_with("q"))` |
+| Drop columns | `select(df, -id)` |
+| Rename | `rename(df, new = old)` |
+| Reorder | `relocate(df, x, .after = id)` |
+
+## 5.7 "Filter / sort rows"
+
+| Task | Command |
+|---|---|
+| Filter by condition | `filter(df, x > 5)` |
+| Filter by multiple | `filter(df, x > 5, y < 10)` |
+| Filter by membership | `filter(df, group %in% c("A", "B"))` |
+| Sort ascending | `arrange(df, x)` |
+| Sort descending | `arrange(df, desc(x))` |
+
+## 5.8 "Group summaries"
+
+| Task | Command |
+|---|---|
+| Mean by group | `df %>% group_by(g) %>% summarise(m = mean(x))` |
+| Multiple stats | `summarise(n = n(), mean = mean(x), sd = sd(x))` |
+| Across columns | `summarise(across(where(is.numeric), mean))` |
+| Count | `count(df, g)` |
+
+## 5.9 "Reshape"
+
+| Task | Command |
+|---|---|
+| Wide → long | `pivot_longer(cols, names_to, values_to)` |
+| Long → wide | `pivot_wider(names_from, values_from)` |
+| Separate one column | `separate(col, into, sep)` |
+| Unite two columns | `unite("new", col1, col2, sep)` |
+
+**Output:** Reshaped data frame + verify dimensions.
+
+## 5.10 "Merge / join"
+
+| Task | Command |
+|---|---|
+| Keep all from left | `left_join(a, b, by = "id")` |
+| Keep only matches | `inner_join(a, b, by = "id")` |
+| Keep all from both | `full_join(a, b, by = "id")` |
+| Rows in a not in b | `anti_join(a, b, by = "id")` |
+
+**After join:** check `nrow()` before and after.
+
+## 5.11 "Train / test split"
+
+```r
+set.seed(42)
+idx <- sample(1:nrow(df), size = 0.8 * nrow(df))
+train <- df[idx, ]
+test  <- df[-idx, ]
+```
+
+**Report:** "Split 80/20, giving X train and Y test rows."
+
+## 5.12 "Detect outliers"
+
+| Method | When |
+|---|---|
+| IQR rule | Univariate |
+| Z-score | Univariate, normal-ish |
+| Cook's D | Regression |
+| Mahalanobis | Multivariate |
+
+**Output:** Which rows are flagged + what to do.
+
+---
+
+# Part 6 — ANOVA / Experimental Design Decision Tree
+
+## 6.1 Overall flow
+
+**Q: What is the design?**
+
+| Design | Go to |
+|---|---|
+| 3+ independent groups, one factor | 6.2 |
+| Two factors | 6.3 |
+| Blocking | 6.4 |
+| Latin Square | 6.5 |
+| Split-plot | 6.6 |
+| Repeated measures | 6.7 |
+| Mixed (between + within) | 6.8 |
+| ANCOVA | 6.9 |
+| Non-normal response | 6.10 |
+| Unbalanced | 6.11 |
+| Power / sample size | 6.12 |
+
+## 6.2 "One-way ANOVA"
+
+**Question forms:**
+- "Are group means equal?"
+- "Is there a treatment effect?"
+- "Compare 3+ groups."
+
+**Code:**
+```r
+fit <- aov(y ~ group, data = df)
+summary(fit)
+```
+
+**If significant:**
+```r
+TukeyHSD(fit)
+emmeans::emmeans(fit, ~ group) %>% pairs()
+```
+
+**Output:** F, df, p, post-hoc pairs.
+
+## 6.3 "Two-way factorial"
+
+**Question forms:**
+- "Does A affect y?"
+- "Does B affect y?"
+- "Is there an interaction?"
+
+**Code:**
+```r
+fit <- aov(y ~ A * B, data = df)
+summary(fit)
+```
+
+**If interaction significant:**
+```r
+emmeans::emmeans(fit, ~ A | B) %>% pairs()
+```
+
+**Output:** Three F-tests (A, B, A:B) + simple effects if interaction.
+
+## 6.4 "Randomized Complete Block Design (RCBD)"
+
+**Question forms:**
+- "Blocks were used. Analyse."
+- "Control for block effects."
+
+**Code:**
+```r
+fit <- aov(y ~ treatment + block, data = df)
+summary(fit)
+```
+
+**Check additivity:**
+```r
+anova(aov(y ~ treatment + block, data = df),
+      aov(y ~ treatment * block, data = df))
+```
+
+**Output:** F for treatment and block; additive model assumed.
+
+## 6.5 "Latin Square / BIBD"
+
+**Question forms:**
+- "Two blocking factors."
+- "Each treatment appears once per row/column."
+
+**Code:**
+```r
+fit <- aov(y ~ row + col + trt, data = df)
+summary(fit)
+```
+
+**BIBD:** more complex; typically reported via `agricolae::BIB.test`.
+
+## 6.6 "Split-plot design"
+
+**Question forms:**
+- "Hard-to-change factor at whole-plot level."
+- "Two error terms."
+
+**Code:**
+```r
+fit <- aov(y ~ whole * split + Error(block / whole), data = df)
+summary(fit)
+```
+
+**Read carefully:** whole-plot effects in the first stratum; split-plot effects in the second.
+
+## 6.7 "Repeated measures"
+
+**Question forms:**
+- "Same subjects measured multiple times."
+- "Within-subject factor."
+
+**Code:**
+```r
+fit <- aov(y ~ time + Error(subject / time), data = df)
+summary(fit)
+```
+
+**Report F-test in `subject:time` stratum.** Check sphericity with `afex::aov_ez`.
+
+**Alternative:**
+```r
+lmerTest::lmer(y ~ time + (1 | subject), data = df)
+```
+
+## 6.8 "Mixed design"
+
+**Question forms:**
+- "Between-subject group, within-subject time."
+
+**Code:**
+```r
+fit <- aov(y ~ group * time + Error(subject / time), data = df)
+summary(fit)
+```
+
+**Output:** group in the between-subject stratum; time and interaction in the within-subject stratum.
+
+## 6.9 "ANCOVA"
+
+**Question forms:**
+- "Compare groups adjusting for a covariate."
+
+**Code:**
+```r
+fit <- lm(y ~ group + x, data = df)
+car::Anova(fit, type = "III")
+emmeans::emmeans(fit, ~ group)
+```
+
+**Check homogeneity of slopes first:**
+```r
+anova(lm(y ~ group + x, data = df),
+      lm(y ~ group * x, data = df))
+```
+
+## 6.10 "Non-normal response"
+
+| Test | When |
+|---|---|
+| Kruskal-Wallis | One-way, non-normal |
+| Friedman | Repeated measures, non-normal |
+| ART | Factorial, non-normal |
+
+**Output:** χ² statistic (KW) or F (ART) + post-hoc.
+
+## 6.11 "Unbalanced design"
+
+**Use `car::Anova(type = "III")`.** Report Type III SS explicitly.
+
+## 6.12 "Power / sample size"
+
+| Question | Command |
+|---|---|
+| Power for one-way | `pwr.anova.test(k, n, f, sig.level)` |
+| Sample size for power | `pwr.anova.test(k, f, power = 0.8)` |
+| Power for two-way | `pwr.f2.test(u, v, f2)` |
+| Power for paired | `pwr.t.test(d, type = "paired")` |
+
+**Output:** Power or n + interpretation.
+
+---
+
+# Part 7 — Multivariate Decision Tree
+
+## 7.1 Overall flow
+
+**Q: How many response variables?**
+- 1 → not multivariate.
+- 2+ → continue.
+
+**Q: What is the goal?**
+
+| Goal | Section |
+|---|---|
+| Compare mean vectors (2 groups) | 7.2 |
+| Compare mean vectors (3+ groups) | 7.3 |
+| Test MVN | 7.4 |
+| Estimate covariance structure | 7.5 |
+| Reduce dimensions | 7.6 |
+| Latent factors | 7.7 |
+| Classify | 7.8 |
+| Cluster | 7.9 |
+| Outliers | 7.10 |
+| Correlation between two sets | 7.11 |
+
+## 7.2 "Two-group Hotelling T²"
+
+**Question forms:**
+- "Do the two groups differ on the joint response?"
+- "Compare mean vectors."
+
+**Code:** See multivariate cheatsheet Part 3.2 — manual implementation.
+
+**Output:** $T^2$, $F$, $p$ + univariate follow-ups.
+
+## 7.3 "MANOVA"
+
+**Question forms:**
+- "Do 3+ groups differ on the joint response?"
+
+**Code:**
+```r
+fit <- manova(cbind(y1, y2, y3) ~ group, data = df)
+summary(fit, test = "Wilks")
+summary.aov(fit)   # univariate follow-ups
+```
+
+**Output:** Wilks' Λ, F, p + follow-up ANOVAs.
+
+## 7.4 "Test MVN"
+
+**Question forms:**
+- "Is the data multivariate normal?"
+
+**Code:** Mardia's test — manual function from multivariate cheatsheet Part 5.3.
+
+**Output:** Skewness and kurtosis p-values + QQ plot.
+
+## 7.5 "Covariance structure"
+
+**Question forms:**
+- "Estimate compound symmetry."
+- "Check sphericity."
+
+**Code:** See multivariate cheatsheet Part 6.2 (CS) and 14.1 (sphericity).
+
+**Output:** $\hat{\sigma}^2$, $\hat{\rho}$, and interpretation.
+
+## 7.6 "PCA"
+
+**Question forms:**
+- "Reduce dimension."
+- "Find components."
+- "Interpret loadings."
+
+**Code:**
+```r
+pca <- prcomp(df, scale. = TRUE)
+summary(pca)
+pca$rotation   # loadings
+pca$x          # scores
+```
+
+**Output:**
+1. Eigenvalues + variance explained.
+2. How many components to keep (Kaiser, scree, cumulative).
+3. Loadings interpretation.
+4. Naming of components.
+
+## 7.7 "Factor analysis"
+
+**Question forms:**
+- "Find latent factors."
+- "Run factor analysis."
+
+**Code:**
+```r
+factanal(df, factors = k, rotation = "varimax")
+```
+
+**Before FA:** Bartlett sphericity + KMO.
+**After FA:** Loadings + factor names + model fit p-value.
+
+## 7.8 "Discriminant analysis"
+
+**Question forms:**
+- "Classify observations into known groups."
+
+**Code:**
+```r
+fit <- MASS::lda(group ~ ., data = df)
+predict(fit)
+```
+
+**Output:** Group means, discriminant coefficients, confusion matrix, accuracy.
+
+## 7.9 "Cluster analysis"
+
+**Question forms:**
+- "Group similar observations."
+
+**Code:**
+```r
+hc <- hclust(dist(scale(X)), method = "ward.D2")
+plot(hc)
+cutree(hc, k = 3)
+
+km <- kmeans(scale(X), centers = 3, nstart = 25)
+```
+
+**Output:** Dendrogram + cluster sizes + centroids + interpretation.
+
+## 7.10 "Outliers"
+
+**Question forms:**
+- "Detect multivariate outliers."
+
+**Code:**
+```r
+md <- mahalanobis(X, colMeans(X), cov(X))
+which(md > qchisq(0.975, df = ncol(X)))
+```
+
+**Output:** Which observations exceed the threshold.
+
+## 7.11 "Canonical correlation"
+
+**Question forms:**
+- "Correlate two sets of variables."
+
+**Code:**
+```r
+cancor(X, Y)
+```
+
+**Output:** Canonical correlations + Wilks Λ + interpretation of first pair.
+
+---
+
+# Part 8 — Sampling Decision Tree
+
+## 8.1 Overall flow
+
+**Q: Is there a finite population of known size N?**
+- Yes → continue.
+- No → not a sampling question.
+
+**Q: What is the question asking?**
+
+| Goal | Section |
+|---|---|
+| Estimate population mean (SRS) | 8.2 |
+| Stratified estimate | 8.3 |
+| Cluster sample | 8.4 |
+| Systematic sample | 8.5 |
+| Compare designs | 8.6 |
+| Bias / variance / MSE | 8.7 |
+| Coverage probability | 8.8 |
+| Sample size | 8.9 |
+| Optimal allocation | 8.10 |
+| Ratio / regression estimator | 8.11 |
+| Design effect | 8.12 |
+
+## 8.2 "Estimate population mean (SRS)"
+
+**Code:**
+```r
+s <- sample(pop, n)
+ybar <- mean(s)
+var_ybar <- (1 - n/N) * var(s) / n
+se <- sqrt(var_ybar)
+ci <- ybar + c(-1, 1) * qnorm(0.975) * se
+```
+
+**Output:** Point estimate, SE, 95% CI.
+
+## 8.3 "Stratified estimate"
+
+**Code:** See sampling cheatsheet Part 4.3.
+
+**Output:** $\bar{y}_{st}$, SE, CI + comparison to SRS.
+
+## 8.4 "Cluster sample"
+
+**Code:** See sampling cheatsheet Part 6.4.
+
+**Output:** Estimator of total, SE, design effect.
+
+## 8.5 "Systematic sample"
+
+**Code:** See sampling cheatsheet Part 5.2.
+
+**Output:** $\bar{y}_{sys}$, variance (SRS approximation), interpretation.
+
+## 8.6 "Compare designs"
+
+**Code:** Compute variance under each design, take ratio.
+
+**Output:** Table of variances + relative efficiency + which design wins.
+
+## 8.7 "Bias / variance / MSE"
+
+**Simulation:**
+```r
+estimates <- replicate(B, { ... })
+bias <- mean(estimates) - truth
+var  <- var(estimates)
+mse  <- mean((estimates - truth)^2)
+```
+
+**Output:** Table of bias, variance, MSE for each estimator.
+
+## 8.8 "Coverage"
+
+**Simulation:**
+```r
+cover <- replicate(B, {
+  s <- sample(pop, n)
+  ci <- ci_function(s, N, n)
+  truth >= ci[1] & truth <= ci[2]
+})
+mean(cover)
+```
+
+**Output:** Coverage probability + interpretation.
+
+## 8.9 "Sample size"
+
+| Target | Formula |
+|---|---|
+| Variance V | $n = S^2/(V + S^2/N)$ |
+| Margin of error e | $n = z^2 S^2/e^2$, adjust with FPC |
+| Proportion | $n = z^2 p(1-p)/e^2$ |
+
+**Output:** Minimal n + rounding up.
+
+## 8.10 "Optimal allocation"
+
+| Type | Formula |
+|---|---|
+| Proportional | $n_h = n N_h / N$ |
+| Neyman | $n_h = n N_h S_h / \sum N_j S_j$ |
+| Cost-optimal | $n_h = n \frac{N_h S_h / \sqrt{c_h}}{\sum N_j S_j / \sqrt{c_j}}$ |
+
+**Output:** Table of $n_h$ + total + variance.
+
+## 8.11 "Ratio / regression estimator"
+
+**Code:** See sampling cheatsheet Part 8.
+
+**Output:** Point estimate + SE + comparison to SRS.
+
+## 8.12 "Design effect"
+
+$$\text{deff} = \text{Var}_{design}/\text{Var}_{SRS}$$
+
+**Output:** deff + effective sample size + interpretation.
+
+---
+
+# Part 9 — Categorical Decision Tree
+
+## 9.1 Overall flow
+
+**Q: How many categorical variables?**
+- One → goodness-of-fit.
+- Two → independence / homogeneity.
+- Paired binary → McNemar.
+- Three → Mantel-Haenszel or log-linear.
+
+**Q: What is the sample size?**
+
+| Expected counts | Test |
+|---|---|
+| All ≥ 5 | Chi-square |
+| Any < 5 | Fisher exact |
+| Sparse r×c | Chi-square with simulation |
+
+## 9.2 By question
+
+| Sub-question | Section |
+|---|---|
+| Are two variables associated? | 9.3 |
+| Same distribution across groups? | 9.4 |
+| Goodness-of-fit | 9.5 |
+| Small sample | 9.6 |
+| Before/after paired | 9.7 |
+| Odds ratio | 9.8 |
+| Strength of association | 9.9 |
+| Controlling for a third variable | 9.10 |
+| Comparing proportions | 9.11 |
+| Simpson's paradox | 9.12 |
+
+## 9.3 "Are two variables associated?"
+
+**Code:**
+```r
+tab <- table(df$A, df$B)
+chisq.test(tab)
+```
+
+**Also check:**
+- `chisq.test(tab)$expected` — all ≥ 5?
+- If association significant, `cramers_v(tab)`.
+
+**Output:** χ², df, p, Cramér's V.
+
+## 9.4 "Same distribution across groups?"
+
+Same computation as 9.3, but report as homogeneity.
+
+## 9.5 "Goodness-of-fit"
+
+**Code:**
+```r
+chisq.test(observed, p = expected_proportions)
+```
+
+**Output:** χ², df = k − 1, p.
+
+## 9.6 "Small sample"
+
+**Code:**
+```r
+fisher.test(tab)
+```
+
+**Output:** Exact p-value + odds ratio + CI.
+
+## 9.7 "Before/after paired"
+
+**Code:**
+```r
+mcnemar.test(tab)
+```
+
+**If b + c < 25:**
+```r
+binom.test(b, b + c, 0.5)
+```
+
+**Output:** χ², df = 1, p.
+
+## 9.8 "Odds ratio"
+
+**Code:**
+```r
+a <- tab[1,1]; b <- tab[1,2]; c <- tab[2,1]; d <- tab[2,2]
+OR <- (a*d)/(b*c)
+se <- sqrt(1/a + 1/b + 1/c + 1/d)
+ci <- exp(log(OR) + c(-1, 1) * qnorm(0.975) * se)
+```
+
+**Output:** OR + 95% CI + interpretation.
+
+## 9.9 "Strength of association"
+
+| Table | Measure |
+|---|---|
+| 2×2 | Phi, odds ratio |
+| r×c | Cramér's V |
+| Ordinal | Kendall τ, Spearman ρ |
+
+**Output:** Value + benchmark (small/medium/large).
+
+## 9.10 "Controlling for a third variable"
+
+**Code:**
+```r
+mantelhaen.test(array)
+```
+
+**Output:** MH χ², common OR, CI.
+
+## 9.11 "Comparing proportions"
+
+**Code:**
+```r
+prop.test(x = c(x1, x2), n = c(n1, n2))
+```
+
+**Output:** χ², p, CI for difference.
+
+## 9.12 "Simpson's paradox"
+
+**Steps:**
+1. Compute marginal proportions.
+2. Compute conditional proportions within strata.
+3. If direction reverses, it's Simpson's paradox.
+4. Adjust with logistic regression or MH.
+
+**Output:** Marginal vs conditional table + explanation.
+
+---
+
+# Part 10 — Cross-Topic Patterns
+
+## 10.1 Questions that span two topics
+
+| Scenario | Topics | Approach |
+|---|---|---|
+| "Regress y on x, then check residuals" | Regression + Diagnostics | Fit, then 4 plots |
+| "Fit ARIMA, then forecast" | Time series + Forecast | Fit, then `forecast` |
+| "Design an experiment, then analyze" | Design + ANOVA | Choose design, then `aov` |
+| "Sample then estimate" | Sampling + Estimation | Draw sample, compute estimator |
+| "Take a contingency table and test" | Categorical + Test | Build table, then chi-square |
+| "Reduce dimensions then classify" | PCA + LDA | PCA scores → LDA |
+
+## 10.2 Mixed-design questions
+
+| Mixed cue | Do |
+|---|---|
+| "Controlling for" | Include covariate; ANCOVA or regression |
+| "Adjusting for" | Same |
+| "After removing the effect of" | Residualise or use ANCOVA |
+| "Given" | Conditioning |
+| "Compare with and without" | Two models or stratified analysis |
+
+## 10.3 Multi-part questions
+
+**Structure:** Part (a), (b), (c).
+**Strategy:** Solve in order; use results of (a) in (b) if natural.
+
+**Common patterns:**
+
+| Sequence | Interpretation |
+|---|---|
+| Fit → diagnose → forecast | Standard time-series pipeline |
+| Describe → test → post-hoc | Standard ANOVA pipeline |
+| Fit → compare → predict | Regression pipeline |
+| Read → clean → analyze | Data handling pipeline |
+
+---
+
+# Part 11 — Red Flags and Traps
+
+## 11.1 Words that warn you
+
+| Word | What it means |
+|---|---|
+| "Controlling for" | Use ANCOVA or include covariate |
+| "After adjusting for" | Same |
+| "Independently" | Test independence, not homogeneity |
+| "Paired" | Use paired test (McNemar, paired t, RM) |
+| "Compare" | Compute a difference and test it |
+| "Interpret" | Give a sentence, not a number |
+| "Explain why" | Not a calculation; explain |
+| "Assume" | You can use that assumption |
+| "Check" | Diagnostic must be run |
+| "Approximately" | CLT applies |
+| "Prove" | Derivation needed |
+| "Show that" | Same |
+| "Verify" | Numerical check |
+
+## 11.2 Traps by topic
+
+### Time series
+
+| Trap | Fix |
+|---|---|
+| Forgetting to convert to `ts` | `ts(y, frequency = ...)` before `acf` |
+| Wrong `frequency` | 1 annual, 4 quarterly, 12 monthly |
+| Misreading ACF/PACF | ACF cuts → MA; PACF cuts → AR |
+| Forgetting to difference | Test ADF; difference if non-stationary |
+| Comparing models with different d | Illegal |
+
+### Regression
+
+| Trap | Fix |
+|---|---|
+| Forgetting to check assumptions | Always plot residuals |
+| Interpreting main effects with interaction | Use simple effects |
+| Using R² to compare non-nested models | Use AIC/BIC |
+| Confusing CI and PI | CI for mean; PI for new obs |
+| Ignoring multicollinearity | Check VIF |
+
+### ANOVA
+
+| Trap | Fix |
+|---|---|
+| Using `aov` without `Error` for RM | Use `Error(subject/time)` |
+| Reading top stratum in RM | Read within-subject stratum |
+| Type I SS on unbalanced | Use Type III |
+| Using Tukey for unequal variances | Use Games-Howell |
+| Multiple tests without correction | Bonferroni, Tukey, or FDR |
+
+### Multivariate
+
+| Trap | Fix |
+|---|---|
+| Not standardizing before PCA | Use `scale. = TRUE` |
+| Confusing `sdev` with eigenvalues | Square `sdev` |
+| Reading loadings wrong | Rows = variables, cols = components |
+| Treating PCA as FA | PCA = components, FA = latent factors |
+| Using k-means with non-spherical clusters | Use hierarchical |
+
+### Sampling
+
+| Trap | Fix |
+|---|---|
+| Forgetting FPC | Multiply variance by `(1 - n/N)` |
+| Confusing N and n | N = population, n = sample |
+| Using SRS variance for cluster | Apply design effect |
+| Not setting seed | `set.seed()` before `sample` |
+
+### Categorical
+
+| Trap | Fix |
+|---|---|
+| Chi-square with expected < 5 | Use Fisher |
+| Confusing independence and homogeneity | Same test, different design |
+| Using McNemar on unpaired data | Check pairing |
+| Reporting OR without CI | Always give CI |
+| Ignoring Simpson's paradox | Stratify before concluding |
+
+---
+
+# Part 12 — Output Shape Templates
+
+## 12.1 Estimate
+
+> "The point estimate is X (SE = Y). A 95% confidence interval is [L, U]."
+
+## 12.2 Test
+
+> "The [test name] gives [statistic](df) = value, p = value. [Reject / Fail to reject] H₀ at the 5% level. There is [significant / no significant] evidence that [conclusion]."
+
+## 12.3 Model fit
+
+> "The fitted model is [equation]. The coefficient of x is β (SE = s, p = p). R² = ... . The model explains X% of the variance."
+
+## 12.4 Interpretation
+
+> "A 1-unit increase in x is associated with a β-unit [increase / decrease] in y, holding other predictors constant."
+
+## 12.5 Forecast
+
+> "The forecast for the next h steps is [values]. The 95% prediction interval is [L, U]. The interval widens with horizon."
+
+## 12.6 Post-hoc
+
+> "[Method] shows that groups [A and B] differ significantly (mean difference = Δ, 95% CI [L, U], p = p)."
+
+## 12.7 Diagnostics
+
+> "Shapiro-Wilk on residuals gives p = X. Levene's test gives p = Y. Q-Q plot shows points on the diagonal. Assumptions are satisfied."
+
+## 12.8 Effect size
+
+> "[Measure] = value, indicating a [small / medium / large] effect."
+
+## 12.9 Comparison
+
+> "Model A has AIC = X, Model B has AIC = Y. Model [A/B] is preferred."
+
+## 12.10 Conclusion
+
+> "In summary, [one-sentence answer to the question], with [caveat about assumptions / limitations]."
+
+---
+
+# Part 13 — Time Management
+
+## 13.1 The 4-3-2-1 rule
+
+For a question worth **T** minutes:
+
+| Phase | Time | Action |
+|---|---|---|
+| Read | 10% of T | Underline verb, circle nouns, identify design |
+| Setup | 30% of T | Load data, clean, build the required object |
+| Analysis | 40% of T | Fit the model, run the test, do post-hoc |
+| Write-up | 20% of T | Interpret, conclude, check output shape |
+
+## 13.2 Decision shortcuts
+
+| If you're stuck… | Do this |
+|---|---|
+| Can't identify the design | List the variables and their types |
+| Can't pick the test | Match the question shape to Part 0.3 |
+| Can't interpret the output | Use the templates in Part 12 |
+| Can't remember R syntax | Check the topic cheatsheet for that section |
+| Can't remember a formula | Derive it from the definition |
+| Can't tell if the answer is right | Sanity-check: sign, magnitude, p-value range |
+
+## 13.3 Common pitfalls in exam timing
+
+1. **Spending 20 minutes on the setup** because the data is messy → clean first, analyse later.
+2. **Not checking assumptions** because you're rushing → 3 minutes for diagnostics.
+3. **Writing too much prose** → 4-5 sentences per part.
+4. **Recomputing the same thing** → save intermediate results.
+5. **Forgetting to report the answer** → always end with a sentence.
+
+---
+
+# Part 14 — The Master Checklist
+
+Before submitting any question, check:
+
+- [ ] Did you **answer the verb**? (Fit? Test? Estimate? Forecast?)
+- [ ] Did you **use the right method** for the design?
+- [ ] Did you **check assumptions**?
+- [ ] Did you **report the statistic, df, p, and effect size**?
+- [ ] Did you **interpret in context**?
+- [ ] Did you **mention limitations**?
+- [ ] Did you **follow the output shape** (Part 12)?
+- [ ] Did you **not skip parts**?
+
+If yes to all eight, you're done.
+
+---
+
+# Part 15 — Cross-Reference Table
+
+Where to find each topic's full treatment.
+
+| Topic | Cheatsheet | Section |
+|---|---|---|
+| R basics | R Basics | All |
+| Data handling | Data Handling | All |
+| Regression | Regression | All |
+| ANOVA & Design | ANOVA & Experimental Design | All |
+| Time series | Time Series | All |
+| Multivariate | Multivariate | All |
+| Sampling | Sampling | All |
+| Categorical | Categorical | All |
+
+Each cheatsheet is self-contained. Every chunk in them runs in isolation.
+
+---
+
+# Part 16 — The One Rule
+
+**If you can find your question in this guide, you can solve it.**
+
+If you can't find it:
+
+1. **Re-read the question.** You probably missed a keyword.
+2. **Check Part 10 (Cross-Topic).** It might be a mixed question.
+3. **Check Part 11 (Traps).** It might be worded to mislead.
+4. **Fall back on Part 0.2.** The universal fallback table.
+
+If after all four steps you still can't place the question, it's out of scope for this exam.
+
+---
+
+*End of question analysis guide. Good luck in the competition.*
+````
+
+---
+
+## What this guide covers
+
+| Part | Content |
+|---|---|
+| 0 | Meta-strategy: how to read any question, universal fallback, five question shapes |
+| 1 | Keyword index: 80+ keywords mapped to topics |
+| 2 | Question shape classifier by verb, structure, and data shape |
+| 3 | Time series decision tree with 11 sub-branches |
+| 4 | Regression decision tree with 14 sub-branches |
+| 5 | Data handling decision tree with 12 sub-branches |
+| 6 | ANOVA/Design decision tree with 12 sub-branches |
+| 7 | Multivariate decision tree with 11 sub-branches |
+| 8 | Sampling decision tree with 12 sub-branches |
+| 9 | Categorical decision tree with 12 sub-branches |
+| 10 | Cross-topic patterns and multi-part question strategies |
+| 11 | Red flags and traps by topic |
+| 12 | Output shape templates (10 templates) |
+| 13 | Time management: 4-3-2-1 rule and pitfalls |
+| 14 | Master checklist (8 items) |
+| 15 | Cross-reference table |
+| 16 | The one rule (fallback protocol) |
+
+**How to use:** search for the **verb** (Part 2) or a **keyword** (Part 1). Follow the branch to a "do this". Run the code from the matching cheatsheet section. Output in the shape from Part 12.

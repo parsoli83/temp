@@ -1,0 +1,1491 @@
+---
+title: "The Ultimate Categorical Data Cheat Sheet"
+author: "Parsa"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(broom)
+library(knitr)
+```
+
+# How to Use This Cheat Sheet
+
+| Topic | Section |
+|---|---|
+| 30-second strategy | 0 |
+| Foundations | 1 |
+| Building contingency tables | 2 |
+| Chi-square goodness-of-fit | 3 |
+| Chi-square independence | 4 |
+| Chi-square homogeneity | 5 |
+| Fisher's exact test | 6 |
+| McNemar (paired) | 7 |
+| Cochran's Q (3+ paired) | 8 |
+| Measures of association | 9 |
+| Odds ratio, RR, RD | 10 |
+| Mantel-Haenszel | 11 |
+| Testing proportions | 12 |
+| Sample size and power | 13 |
+| Logistic regression preview | 14 |
+| Log-linear models | 15 |
+| Simpson's paradox | 16 |
+| Theory Q&A | 17 |
+| Exam scenarios | 18 |
+| Quick reference | 19 |
+| Common mistakes | 20 |
+| Single most important idea | 21 |
+
+**Golden rule:** every chunk is self-contained.
+
+---
+
+# Part 0 — The 30-Second Exam Strategy
+
+For **any** categorical question, run this pipeline:
+
+1. **Identify the design:**
+   - One variable → goodness-of-fit.
+   - Two variables, one sample → independence.
+   - Two variables, multiple samples → homogeneity.
+   - Paired binary → McNemar.
+   - 3+ paired binary → Cochran's Q.
+   - Small expected counts → Fisher.
+   - Third variable to control → Mantel-Haenszel.
+2. **Build** the contingency table.
+3. **Check expected counts** (≥ 5 rule).
+4. **Run the test.**
+5. **Measure association** (Cramér's V, OR, RR).
+6. **Report** statistic, df, p-value, association size, CI.
+
+If you can do these six steps, you can answer any categorical question.
+
+---
+
+# Part 1 — Foundations
+
+## 1.1 What categorical data is
+
+Data where each observation falls into one of a **finite set of categories**. Two types:
+
+| Type | Example | Analysis |
+|---|---|---|
+| **Nominal** | Blood type (A, B, AB, O) | Frequency counts, chi-square |
+| **Ordinal** | Pain (mild, moderate, severe) | Ordinal tests, trend tests |
+
+**Why special:** You can't take means of categories. You work with **counts** and **proportions**.
+
+## 1.2 Contingency tables
+
+A **contingency table** cross-tabulates two (or more) categorical variables.
+
+**2×2 example:**
+
+|  | Outcome + | Outcome − | Total |
+|---|---|---|---|
+| Exposed | $a$ | $b$ | $a+b$ |
+| Unexposed | $c$ | $d$ | $c+d$ |
+| Total | $a+c$ | $b+d$ | $n$ |
+
+**R×C example:** Rows = levels of variable 1, columns = levels of variable 2.
+
+## 1.3 Marginal vs conditional distributions
+
+- **Marginal:** row totals / n, column totals / n.
+- **Conditional (row):** each cell / row total (row percentages).
+- **Conditional (column):** each cell / column total (column percentages).
+
+**Which to report:** Depends on which variable is the predictor.
+
+## 1.4 Types of sampling designs
+
+| Design | Sample | Test |
+|---|---|---|
+| **Cross-sectional** | One sample, two variables measured | Independence |
+| **Prospective cohort** | Groups defined by exposure, follow for outcome | Homogeneity |
+| **Case-control** | Groups defined by outcome, look back at exposure | Homogeneity (with OR) |
+| **Matched pairs** | Paired before/after | McNemar |
+
+**Same chi-square computation** — only interpretation and study design differ.
+
+## 1.5 Expected counts
+
+Under independence:
+$$E_{ij} = \frac{(\text{row}_i)(\text{col}_j)}{n}$$
+
+**Rule:** All $E_{ij} \geq 5$ for the chi-square approximation to be valid.
+**If not:** use Fisher exact test or simulated p-value.
+
+## 1.6 The chi-square statistic
+
+$$\chi^2 = \sum_{i=1}^{r}\sum_{j=1}^{c} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}$$
+
+Under independence: $\chi^2 \sim \chi^2_{(r-1)(c-1)}$.
+
+- Larger $\chi^2$ → stronger evidence against independence.
+- $p < 0.05$ → reject independence.
+
+## 1.7 Hypotheses templates
+
+**Independence:**
+- $H_0$: variables are independent.
+- $H_1$: variables are associated.
+
+**Homogeneity:**
+- $H_0$: distributions are the same across groups.
+- $H_1$: at least one distribution differs.
+
+**Goodness-of-fit:**
+- $H_0$: observed proportions match hypothesized proportions.
+- $H_1$: they don't.
+
+**McNemar:**
+- $H_0$: proportion of "yes" is the same before and after.
+- $H_1$: they differ.
+
+---
+
+# Part 2 — Building Contingency Tables
+
+## 2.1 From raw data
+
+```{r}
+# --- Self-contained: contingency table from raw data ---
+set.seed(201)
+p2_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE, prob = c(0.4, 0.6))
+)
+
+p2_tab <- table(p2_df$gender, p2_df$smoke)
+p2_tab
+```
+
+**What `table()` gives:** A matrix with counts. Rows = first variable, columns = second.
+
+## 2.2 From a matrix of counts
+
+```{r}
+# --- Self-contained: enter table directly ---
+p2_tab <- matrix(c(30, 45, 20, 55), nrow = 2, byrow = TRUE)
+dimnames(p2_tab) <- list(
+  exposure = c("yes", "no"),
+  outcome  = c("case", "control")
+)
+p2_tab
+```
+
+**Why:** Exam tables are usually given as counts. Enter row by row with `byrow = TRUE`.
+
+## 2.3 Add margins
+
+```{r}
+# --- Self-contained: margins and percentages ---
+set.seed(202)
+p2_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+p2_tab <- table(p2_df$gender, p2_df$smoke)
+
+addmargins(p2_tab)
+```
+
+**Output:** Original table with row and column totals.
+
+## 2.4 Proportions
+
+```{r}
+# --- Self-contained: proportion tables ---
+set.seed(203)
+p2_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+p2_tab <- table(p2_df$gender, p2_df$smoke)
+
+round(prop.table(p2_tab), 3)                    # overall
+round(prop.table(p2_tab, margin = 1), 3)        # row %
+round(prop.table(p2_tab, margin = 2), 3)        # column %
+```
+
+**Which to use:** For a 2×2, if gender is the predictor, report **row percentages** (`margin = 1`).
+
+## 2.5 Long vs wide with tidyverse
+
+```{r}
+# --- Self-contained: convert long to wide counts ---
+set.seed(204)
+p2_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+
+p2_df %>%
+  count(gender, smoke) %>%
+  pivot_wider(names_from = smoke, values_from = n, values_fill = 0) %>%
+  kable()
+```
+
+**Why:** `pivot_wider` produces a clean display for reports.
+
+## 2.6 Three-way tables
+
+```{r}
+# --- Self-contained: three-way table ---
+set.seed(205)
+p2_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE),
+  age    = sample(c("young", "old"), 300, replace = TRUE)
+)
+
+p2_tab3 <- table(p2_df$gender, p2_df$smoke, p2_df$age)
+p2_tab3[, , "young"]           # slice for young
+```
+
+**Use case:** Testing association controlling for a third variable (Mantel-Haenszel).
+
+## 2.7 Report template
+
+> "The 2×2 table shows X exposed cases, Y exposed controls, Z unexposed cases, W unexposed controls. Row percentages show that 40% of exposed and 25% of unexposed are cases."
+
+---
+
+# Part 3 — Chi-Square Goodness-of-Fit
+
+## 3.1 What it tests
+
+**Question:** Does an observed frequency distribution match a hypothesized distribution?
+
+- $H_0$: observed proportions = hypothesized proportions.
+- $H_1$: they differ.
+
+## 3.2 Equal proportions
+
+```{r}
+# --- Self-contained: equal proportions goodness-of-fit ---
+p3_observed <- c(45, 30, 25)
+
+chisq.test(p3_observed)
+```
+
+**Output:**
+- `X-squared`: test statistic.
+- `df`: k − 1 (k = number of categories).
+- `p-value`: probability of seeing this deviation under $H_0$.
+
+**Report:** "Chi-square = ..., df = 2, p = ... . [Reject/fail to reject] that the three categories are equally frequent."
+
+## 3.3 Specific proportions
+
+```{r}
+# --- Self-contained: specific expected proportions ---
+p3_observed <- c(45, 30, 25)
+p3_expected <- c(0.5, 0.3, 0.2)
+
+chisq.test(p3_observed, p = p3_expected)
+```
+
+**Interpretation:** $H_0$ says the true proportions are (0.5, 0.3, 0.2). $p < 0.05$ → reject; observed differs.
+
+## 3.4 What the expected counts look like
+
+```{r}
+# --- Self-contained: inspect expected counts ---
+p3_observed <- c(45, 30, 25)
+p3_expected <- c(0.5, 0.3, 0.2)
+p3_fit <- chisq.test(p3_observed, p = p3_expected)
+
+p3_fit$observed
+p3_fit$expected
+p3_fit$residuals   # (O - E) / sqrt(E)
+```
+
+**Interpretation:** Large positive residuals = overrepresented categories. Large negative = underrepresented.
+
+## 3.5 Goodness-of-fit for a contingency table
+
+Also called **independence test** (same computation, different name). See Part 4.
+
+## 3.6 Report template
+
+> "A chi-square goodness-of-fit test gives $\chi^2(2) = 8.4$, $p = 0.015$. We reject $H_0$; the observed frequencies differ significantly from the hypothesized proportions."
+
+---
+
+# Part 4 — Chi-Square Test of Independence
+
+## 4.1 What it tests
+
+**Question:** Are two categorical variables associated in a single sample?
+
+- $H_0$: variables are independent.
+- $H_1$: they are associated.
+
+## 4.2 Run the test
+
+```{r}
+# --- Self-contained: independence test ---
+set.seed(401)
+p4_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE, prob = c(0.4, 0.6))
+)
+
+p4_tab <- table(p4_df$gender, p4_df$smoke)
+p4_fit <- chisq.test(p4_tab)
+p4_fit
+```
+
+**Output:**
+- `X-squared`: test statistic.
+- `df`: (r − 1)(c − 1).
+- `p-value`: probability of seeing this deviation under independence.
+
+## 4.3 Check expected counts
+
+```{r}
+# --- Self-contained: expected counts ---
+set.seed(402)
+p4_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+p4_tab <- table(p4_df$gender, p4_df$smoke)
+
+round(chisq.test(p4_tab)$expected, 2)
+```
+
+**Rule:** All $E_{ij} \geq 5$. If any are < 5 → use Fisher.
+
+## 4.4 Cell-wise residuals
+
+```{r}
+# --- Self-contained: cell residuals ---
+set.seed(403)
+p4_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+p4_tab <- table(p4_df$gender, p4_df$smoke)
+
+round(chisq.test(p4_tab)$residuals, 3)
+```
+
+**Interpretation:** A residual of +2 means the observed count is 2 SEs above what independence predicts.
+
+## 4.5 Simulated p-value (sparse tables)
+
+```{r}
+# --- Self-contained: simulated p-value ---
+set.seed(404)
+p4_tab <- matrix(c(2, 8, 5, 3), nrow = 2, byrow = TRUE)
+
+chisq.test(p4_tab, simulate.p.value = TRUE, B = 10000)
+```
+
+**When:** Expected counts < 5 and you can't use Fisher (larger than 2×2).
+
+## 4.6 Report template
+
+> "A chi-square test of independence gives $\chi^2(1) = 5.2$, $p = 0.023$. We reject $H_0$; there is significant evidence of association between gender and smoking status. All expected counts exceed 5."
+
+---
+
+# Part 5 — Chi-Square Test of Homogeneity
+
+## 5.1 What it tests
+
+**Question:** Are the distributions of one variable the same across groups defined by a second variable?
+
+- $H_0$: distributions are identical across groups.
+- $H_1$: at least one differs.
+
+## 5.2 Run the test
+
+```{r}
+# --- Self-contained: homogeneity test ---
+set.seed(501)
+p5_df <- tibble(
+  city  = c(rep("A", 100), rep("B", 100), rep("C", 100)),
+  party = c(sample(c("X", "Y"), 100, replace = TRUE, prob = c(0.6, 0.4)),
+            sample(c("X", "Y"), 100, replace = TRUE, prob = c(0.4, 0.6)),
+            sample(c("X", "Y"), 100, replace = TRUE, prob = c(0.5, 0.5)))
+)
+
+p5_tab <- table(p5_df$city, p5_df$party)
+chisq.test(p5_tab)
+```
+
+**Output:** Identical structure to independence.
+
+**Difference:** Interpretation. Here, "do the cities have the same party distribution?"
+
+## 5.3 Report template
+
+> "A chi-square test of homogeneity gives $\chi^2(2) = 7.9$, $p = 0.019$. We reject $H_0$; the three cities have significantly different party distributions."
+
+## 5.4 Independence vs homogeneity — when to call it which
+
+| Feature | Independence | Homogeneity |
+|---|---|---|
+| Sample | One sample | Multiple independent samples |
+| Variables | Two, both measured | Group + response |
+| Question | "Are they associated?" | "Are distributions the same?" |
+| Computation | Same chi-square | Same chi-square |
+
+**Rule:** In practice, use the wording that matches the study design.
+
+---
+
+# Part 6 — Fisher's Exact Test
+
+## 6.1 When to use
+
+- 2×2 table with any expected count < 5.
+- Small samples.
+- Testing exact independence.
+
+## 6.2 Run the test
+
+```{r}
+# --- Self-contained: Fisher's exact test ---
+set.seed(601)
+p6_tab <- matrix(c(3, 7, 8, 2), nrow = 2, byrow = TRUE)
+dimnames(p6_tab) <- list(
+  treatment = c("drug", "placebo"),
+  outcome   = c("improved", "not_improved")
+)
+p6_tab
+
+fisher.test(p6_tab)
+```
+
+**Output:**
+- `p-value`: exact one- or two-sided p.
+- `odds ratio`: sample OR (from `fisher.test` directly).
+- `conf.int`: exact CI for the OR.
+
+## 6.3 One-sided vs two-sided
+
+```{r}
+# --- Self-contained: one-sided Fisher ---
+p6_tab <- matrix(c(3, 7, 8, 2), nrow = 2, byrow = TRUE)
+fisher.test(p6_tab, alternative = "greater")   # one-sided
+fisher.test(p6_tab, alternative = "two.sided") # default
+```
+
+**When to use one-sided:** You have a pre-specified direction.
+
+## 6.4 Fisher for larger tables
+
+```{r}
+# --- Self-contained: Fisher for larger tables (simulated) ---
+set.seed(602)
+p6_tab <- matrix(sample(1:20, 12, replace = TRUE), nrow = 3)
+
+# Exact computation is infeasible; use simulation
+fisher.test(p6_tab, simulate.p.value = TRUE, B = 10000)
+```
+
+**Interpretation:** Same as chi-square, but p-values are computed exactly.
+
+## 6.5 Report template
+
+> "Because expected counts were below 5, Fisher's exact test was used. The test gives p = 0.048. The odds ratio is 3.2 (95% CI: 1.01, 10.5), indicating the drug approximately triples the odds of improvement."
+
+---
+
+# Part 7 — McNemar's Test (Paired Binary)
+
+## 7.1 What it tests
+
+**Question:** Same subjects measured twice (before/after). Did the proportion change?
+
+- $H_0$: proportion of "yes" is the same before and after.
+- $H_1$: they differ.
+
+## 7.2 The 2×2 paired table
+
+|  | After + | After − |
+|---|---|---|
+| Before + | $a$ | $b$ |
+| Before − | $c$ | $d$ |
+
+**Only the off-diagonal cells $b$ and $c$ matter** — they are the disagreements.
+
+## 7.3 Run the test
+
+```{r}
+# --- Self-contained: McNemar test ---
+p7_tab <- matrix(c(30, 15, 5, 50), nrow = 2, byrow = TRUE)
+dimnames(p7_tab) <- list(
+  before = c("positive", "negative"),
+  after  = c("positive", "negative")
+)
+p7_tab
+
+mcnemar.test(p7_tab)
+```
+
+**Output:** $\chi^2$ computed on $(b-c)^2 / (b+c)$ with or without continuity correction.
+
+## 7.4 Exact McNemar (small samples)
+
+```{r}
+# --- Self-contained: exact McNemar ---
+p7_tab <- matrix(c(2, 8, 1, 9), nrow = 2, byrow = TRUE)
+mcnemar.test(p7_tab)
+
+# Exact: use binom.test on the discordant pairs
+binom.test(x = 8, n = 8 + 1, p = 0.5)
+```
+
+**When $b + c < 25$:** use exact binomial test on the discordant pairs.
+
+## 7.5 Report template
+
+> "McNemar's test gives $\chi^2(1) = 4.5$, $p = 0.034$. The proportion of positives changed significantly from before (45%) to after (35%)."
+
+---
+
+# Part 8 — Cochran's Q (3+ Paired Binary)
+
+## 8.1 What it tests
+
+**Question:** Same subjects measured 3+ times with binary outcome. Do proportions differ across conditions?
+
+- $H_0$: all condition proportions are equal.
+- $H_1$: at least one differs.
+
+## 8.2 Manual implementation (no extra package)
+
+```{r}
+# --- Self-contained: Cochran's Q ---
+set.seed(801)
+p8_df <- tibble(
+  subject = 1:50,
+  t1 = rbinom(50, 1, 0.3),
+  t2 = rbinom(50, 1, 0.5),
+  t3 = rbinom(50, 1, 0.4)
+)
+
+# Cochran's Q formula
+X <- as.matrix(p8_df[, c("t1", "t2", "t3")])
+k <- ncol(X)
+n <- nrow(X)
+
+T_j <- colSums(X)
+T   <- sum(T_j)
+S   <- sum(rowSums(X)^2)
+
+Q <- (k - 1) * (k * sum(T_j^2) - T^2) / (k * T - S)
+p_value <- 1 - pchisq(Q, df = k - 1)
+
+round(c(Q = Q, df = k - 1, p_value = p_value), 4)
+```
+
+**Output:** Q statistic, df = k − 1, p-value.
+
+**Interpretation:** $p < 0.05$ → at least one time point's proportion differs.
+
+## 8.3 Post-hoc: pairwise McNemar with Bonferroni
+
+```{r}
+# --- Self-contained: post-hoc pairwise McNemar ---
+set.seed(802)
+p8_df <- tibble(
+  t1 = rbinom(50, 1, 0.3),
+  t2 = rbinom(50, 1, 0.5),
+  t3 = rbinom(50, 1, 0.4)
+)
+
+pairs <- combn(c("t1", "t2", "t3"), 2, simplify = FALSE)
+for (pr in pairs) {
+  tab <- table(p8_df[[pr[1]]], p8_df[[pr[2]]])
+  test <- mcnemar.test(tab)
+  cat(pr[1], "vs", pr[2], ": p =", round(test$p.value, 4), "\n")
+}
+```
+
+**Apply Bonferroni correction** for 3 comparisons: multiply p by 3.
+
+## 8.4 Report template
+
+> "Cochran's Q gives Q = 12.4, df = 2, p = 0.002, indicating the proportion differs across the three time points. Post-hoc McNemar tests with Bonferroni correction show t1 vs t2 differs (p = 0.006), while t2 vs t3 does not (p = 0.42)."
+
+---
+
+# Part 9 — Measures of Association
+
+## 9.1 Cramér's V
+
+**For any r × c table.** Ranges 0 to 1.
+
+$$V = \sqrt{\frac{\chi^2}{n \cdot \min(r-1, c-1)}}$$
+
+```{r}
+# --- Self-contained: Cramer's V ---
+set.seed(901)
+p9_tab <- table(sample(c("A", "B"), 300, replace = TRUE),
+                sample(c("X", "Y", "Z"), 300, replace = TRUE))
+
+p9_v <- function(tab) {
+  chi2 <- chisq.test(tab, correct = FALSE)$statistic
+  n <- sum(tab)
+  k <- min(nrow(tab), ncol(tab))
+  sqrt(as.numeric(chi2) / (n * (k - 1)))
+}
+
+round(p9_v(p9_tab), 4)
+```
+
+**Benchmark (Cohen):**
+
+| V | Strength |
+|---|---|
+| 0.1 | small |
+| 0.3 | moderate |
+| 0.5 | large |
+
+## 9.2 Phi coefficient (2×2 only)
+
+$$\phi = \sqrt{\frac{\chi^2}{n}} = \frac{ad - bc}{\sqrt{(a+b)(c+d)(a+c)(b+d)}}$$
+
+```{r}
+# --- Self-contained: phi coefficient ---
+p9_tab <- matrix(c(30, 45, 20, 55), nrow = 2, byrow = TRUE)
+
+phi <- function(tab) {
+  chi2 <- chisq.test(tab, correct = FALSE)$statistic
+  sqrt(as.numeric(chi2) / sum(tab))
+}
+
+round(phi(p9_tab), 4)
+```
+
+**Range:** −1 to +1 (sign indicates direction).
+
+## 9.3 Contingency coefficient C
+
+$$C = \sqrt{\frac{\chi^2}{\chi^2 + n}}$$
+
+```{r}
+# --- Self-contained: contingency coefficient ---
+p9_tab <- matrix(c(30, 45, 20, 55), nrow = 2, byrow = TRUE)
+chi2 <- as.numeric(chisq.test(p9_tab, correct = FALSE)$statistic)
+C <- sqrt(chi2 / (chi2 + sum(p9_tab)))
+round(C, 4)
+```
+
+**Range:** 0 to $\sqrt{(k-1)/k}$ where $k$ = min(r, c). Not comparable across tables of different sizes.
+
+## 9.4 Yule's Q (2×2 only)
+
+$$Q = \frac{ad - bc}{ad + bc}$$
+
+```{r}
+# --- Self-contained: Yule's Q ---
+p9_tab <- matrix(c(30, 45, 20, 55), nrow = 2, byrow = TRUE)
+a <- p9_tab[1,1]; b <- p9_tab[1,2]
+c <- p9_tab[2,1]; d <- p9_tab[2,2]
+round((a*d - b*c) / (a*d + b*c), 4)
+```
+
+**Range:** −1 to +1.
+
+## 9.5 Choosing a measure
+
+| Table | Use |
+|---|---|
+| 2×2 | Phi, odds ratio |
+| 2×2, asymmetric | Odds ratio, relative risk |
+| r×c | Cramér's V |
+| Ordinal × ordinal | Spearman rho, Kendall tau |
+| Compare across tables | Cramér's V (range 0–1) |
+
+## 9.6 Report template
+
+> "Cramér's V = 0.28, indicating a small-to-moderate association between the two variables."
+
+---
+
+# Part 10 — Odds Ratio, Relative Risk, Risk Difference
+
+## 10.1 2×2 layout
+
+|  | Case | Control |
+|---|---|---|
+| Exposed | $a$ | $b$ |
+| Unexposed | $c$ | $d$ |
+
+- $n_1 = a + b$, $n_0 = c + d$.
+
+## 10.2 Odds ratio (case-control)
+
+$$OR = \frac{a/b}{c/d} = \frac{ad}{bc}$$
+
+**Interpretation:** OR > 1 → exposure associated with higher odds of outcome. OR = 1 → no association.
+
+```{r}
+# --- Self-contained: odds ratio with CI ---
+p10_tab <- matrix(c(40, 60, 20, 80), nrow = 2, byrow = TRUE)
+a <- p10_tab[1,1]; b <- p10_tab[1,2]
+c <- p10_tab[2,1]; d <- p10_tab[2,2]
+
+OR <- (a * d) / (b * c)
+se_log_OR <- sqrt(1/a + 1/b + 1/c + 1/d)
+z  <- qnorm(0.975)
+ci <- exp(c(log(OR) - z * se_log_OR, log(OR) + z * se_log_OR))
+
+round(c(OR = OR, lower = ci[1], upper = ci[2]), 4)
+```
+
+**CI not containing 1** → significant association.
+
+## 10.3 Relative risk (cohort)
+
+$$RR = \frac{a/(a+b)}{c/(c+d)}$$
+
+**Use RR for prospective cohort studies.** OR approximates RR when outcome is rare (< 10%).
+
+```{r}
+# --- Self-contained: relative risk with CI ---
+p10_tab <- matrix(c(40, 60, 20, 80), nrow = 2, byrow = TRUE)
+a <- p10_tab[1,1]; b <- p10_tab[1,2]
+c <- p10_tab[2,1]; d <- p10_tab[2,2]
+
+RR <- (a / (a + b)) / (c / (c + d))
+se_log_RR <- sqrt(1/a - 1/(a+b) + 1/c - 1/(c+d))
+z  <- qnorm(0.975)
+ci <- exp(c(log(RR) - z * se_log_RR, log(RR) + z * se_log_RR))
+
+round(c(RR = RR, lower = ci[1], upper = ci[2]), 4)
+```
+
+## 10.4 Risk difference (attributable risk)
+
+$$RD = p_1 - p_0 = \frac{a}{a+b} - \frac{c}{c+d}$$
+
+**Absolute measure** — how many additional cases per 100 exposed.
+
+```{r}
+# --- Self-contained: risk difference with CI ---
+p10_tab <- matrix(c(40, 60, 20, 80), nrow = 2, byrow = TRUE)
+a <- p10_tab[1,1]; b <- p10_tab[1,2]
+c <- p10_tab[2,1]; d <- p10_tab[2,2]
+
+p1 <- a / (a + b); p0 <- c / (c + d)
+RD <- p1 - p0
+se <- sqrt(p1*(1-p1)/(a+b) + p0*(1-p0)/(c+d))
+z  <- qnorm(0.975)
+ci <- c(RD - z * se, RD + z * se)
+
+round(c(RD = RD, lower = ci[1], upper = ci[2]), 4)
+```
+
+## 10.5 Number needed to treat (NNT)
+
+$$NNT = \frac{1}{|RD|}$$
+
+**Interpretation:** Need to treat $NNT$ people to prevent (or cause) one additional outcome.
+
+## 10.6 Report template
+
+> "The odds ratio is 2.67 (95% CI: 1.42, 5.01), indicating that exposed individuals have approximately 2.7 times the odds of the outcome compared to unexposed. The relative risk is 1.78 (95% CI: 1.24, 2.55). The risk difference is 0.13 (95% CI: 0.04, 0.22), meaning 13 additional cases per 100 exposed."
+
+---
+
+# Part 11 — Mantel-Haenszel Test
+
+## 11.1 What it does
+
+**Question:** Is there an association between two binary variables **after controlling for a third (stratifying) variable**?
+
+**Common use:** Combine multiple 2×2 tables (strata) into a single test and a single common OR.
+
+## 11.2 The stratified table
+
+Each stratum is a 2×2 table. Compute:
+
+- $\chi^2_{MH}$ = sum of $O - E$ over strata.
+- Common OR = $\frac{\sum a_i d_i / n_i}{\sum b_i c_i / n_i}$.
+
+## 11.3 Run the test
+
+```{r}
+# --- Self-contained: Mantel-Haenszel test ---
+set.seed(1101)
+p11_array <- array(
+  c(20, 30, 10, 40,
+    15, 25, 12, 48,
+    10, 20, 18, 52),
+  dim = c(2, 2, 3)
+)
+
+mantelhaen.test(p11_array)
+```
+
+**Output:**
+- `Mantel-Haenszel chi-squared`: the test statistic.
+- `common odds ratio`: pooled OR.
+- `conf.int`: 95% CI for the common OR.
+
+## 11.4 Testing homogeneity of OR across strata (Breslow-Day)
+
+Base R doesn't have this, but you can test it manually via logistic regression with an interaction:
+
+```{r eval=FALSE}
+# --- Self-contained: Breslow-Day via logistic regression ---
+# Fit logistic with exposure*stratum interaction
+fit_int <- glm(outcome ~ exposure * stratum, family = binomial)
+fit_no  <- glm(outcome ~ exposure + stratum, family = binomial)
+anova(fit_no, fit_int, test = "Chisq")
+```
+
+**Interpretation:** $p > 0.05$ → OR is constant across strata → MH common OR is valid.
+
+## 11.5 When to use MH
+
+- Test association while controlling for a confounder.
+- Combine multiple small 2×2 tables.
+- Matched case-control data.
+
+## 11.6 Report template
+
+> "The Mantel-Haenszel test controlling for age gives a common odds ratio of 2.3 (95% CI: 1.5, 3.5), $\chi^2(1) = 15.2$, $p < 0.001$. The association persists after adjusting for age."
+
+---
+
+# Part 12 — Testing Proportions
+
+## 12.1 One proportion against a fixed value
+
+```{r}
+# --- Self-contained: exact binomial test ---
+binom.test(x = 45, n = 100, p = 0.5)
+```
+
+**Output:** Exact p-value, sample proportion, Clopper-Pearson CI.
+
+**When:** Small sample, or you want the exact CI.
+
+## 12.2 One proportion (large-sample z-test)
+
+```{r}
+# --- Self-contained: one-proportion z-test ---
+prop.test(x = 45, n = 100, p = 0.5, correct = FALSE)
+```
+
+**Output:** Chi-square statistic, p-value, CI for p.
+
+## 12.3 Two proportions
+
+```{r}
+# --- Self-contained: two-proportion test ---
+prop.test(x = c(45, 30), n = c(100, 100))
+```
+
+**Output:**
+- $\chi^2$ statistic.
+- p-value.
+- CI for the difference $p_1 - p_2$.
+
+**Interpretation:** $p < 0.05$ → proportions differ significantly.
+
+## 12.4 Many proportions
+
+```{r}
+# --- Self-contained: three-proportion test ---
+prop.test(x = c(45, 30, 40), n = c(100, 100, 100))
+```
+
+**What it does:** Tests $H_0: p_1 = p_2 = p_3$.
+
+## 12.5 Which test to use
+
+| Test | When |
+|---|---|
+| `binom.test` | Exact, one proportion, small n |
+| `prop.test` | Approximate, one or more proportions |
+| `chisq.test` (2×2) | Equals `prop.test` without continuity correction |
+| `fisher.test` | Exact, small expected counts |
+
+## 12.6 Report template
+
+> "The two-proportion z-test gives $\chi^2(1) = 4.8$, $p = 0.028$. The first proportion (45%) is significantly higher than the second (30%). The difference is 15 percentage points (95% CI: 2, 28)."
+
+---
+
+# Part 13 — Sample Size and Power
+
+## 13.1 Sample size for a proportion (given margin of error)
+
+$$n_0 = \frac{z^2 p(1-p)}{e^2}, \quad n = \frac{n_0}{1 + n_0/N}$$
+
+```{r}
+# --- Self-contained: sample size for one proportion ---
+p13_p <- 0.5
+p13_e <- 0.05
+p13_z <- qnorm(0.975)
+
+p13_n0 <- p13_z^2 * p13_p * (1 - p13_p) / p13_e^2
+ceiling(p13_n0)
+```
+
+**Conservative:** use $p = 0.5$ if unsure.
+
+## 13.2 Sample size for two proportions
+
+$$n_{\text{per group}} = \frac{(z_{\alpha/2} + z_\beta)^2 [p_1(1-p_1) + p_2(1-p_2)]}{(p_1 - p_2)^2}$$
+
+```{r}
+# --- Self-contained: sample size for two proportions ---
+p13_p1 <- 0.5; p13_p2 <- 0.3
+p13_alpha <- 0.05; p13_power <- 0.80
+
+p13_za <- qnorm(1 - p13_alpha/2)
+p13_zb <- qnorm(p13_power)
+
+p13_n <- (p13_za + p13_zb)^2 * (p13_p1*(1-p13_p1) + p13_p2*(1-p13_p2)) /
+         (p13_p1 - p13_p2)^2
+ceiling(p13_n)
+```
+
+**Interpretation:** Need this many per group to detect a difference of $p_1 - p_2$ with 80% power.
+
+## 13.3 Power of a chi-square test
+
+```{r}
+# --- Self-contained: power for chi-square (manual) ---
+p13_w <- 0.3    # Cohen's w
+p13_n <- 100
+p13_df <- 2
+
+p13_lambda <- p13_n * p13_w^2
+p13_crit <- qchisq(0.95, df = p13_df)
+p13_power <- 1 - pchisq(p13_crit, df = p13_df, ncp = p13_lambda)
+round(p13_power, 4)
+```
+
+**Cohen's w benchmarks:** 0.1 small, 0.3 medium, 0.5 large.
+
+## 13.4 Sample size for a chi-square test
+
+```{r}
+# --- Self-contained: sample size for chi-square ---
+p13_w <- 0.3
+p13_df <- 2
+p13_alpha <- 0.05
+p13_power <- 0.80
+
+# Iterate n until power >= 0.80
+p13_n <- 10
+repeat {
+  lambda <- p13_n * p13_w^2
+  crit <- qchisq(1 - p13_alpha, df = p13_df)
+  pw <- 1 - pchisq(crit, df = p13_df, ncp = lambda)
+  if (pw >= p13_power) break
+  p13_n <- p13_n + 1
+}
+p13_n
+```
+
+## 13.5 Report template
+
+> "To detect a difference between proportions of 0.50 and 0.30 with 80% power at α = 0.05, we need 93 subjects per group (186 total)."
+
+---
+
+# Part 14 — Logistic Regression Preview
+
+## 14.1 Why logistic regression
+
+When you have:
+- A **binary outcome** and
+- One or more **categorical or continuous predictors**.
+
+Logistic regression is the extension of the 2×2 analysis to multiple predictors.
+
+## 14.2 Fit logistic regression
+
+```{r}
+# --- Self-contained: logistic regression ---
+set.seed(1401)
+p14_n <- 300
+p14_df <- tibble(
+  x = rnorm(p14_n),
+  y = rbinom(p14_n, 1, plogis(-1 + 1.5 * x))
+)
+
+p14_fit <- glm(y ~ x, family = binomial, data = p14_df)
+summary(p14_fit)
+```
+
+**Output:**
+- Coefficients = log-odds per unit change in x.
+- Standard errors.
+- z-value, p-value.
+
+## 14.3 Odds ratios from coefficients
+
+```{r}
+# --- Self-contained: logistic ORs ---
+set.seed(1402)
+p14_df <- tibble(
+  x = rnorm(300),
+  y = rbinom(300, 1, plogis(-1 + 1.5 * x))
+)
+p14_fit <- glm(y ~ x, family = binomial, data = p14_df)
+
+exp(coef(p14_fit))
+exp(confint(p14_fit))
+```
+
+**Interpretation:** `exp(beta)` = multiplicative change in odds per unit increase in x.
+
+## 14.4 Categorical predictor (2×2 as regression)
+
+```{r}
+# --- Self-contained: logistic with factor ---
+set.seed(1403)
+p14_df <- tibble(
+  exposure = factor(sample(c("yes", "no"), 300, replace = TRUE)),
+  y = rbinom(300, 1, 0.3 + 0.2 * (exposure == "yes"))
+)
+
+p14_fit <- glm(y ~ exposure, family = binomial, data = p14_df)
+exp(coef(p14_fit))
+```
+
+**Note:** `exp(beta)` for the exposure term = odds ratio from the 2×2 table.
+
+## 14.5 Likelihood ratio test
+
+```{r}
+# --- Self-contained: LRT for a predictor ---
+set.seed(1404)
+p14_df <- tibble(
+  x = rnorm(300),
+  y = rbinom(300, 1, plogis(-1 + 1.5 * x))
+)
+p14_full <- glm(y ~ x, family = binomial, data = p14_df)
+p14_null <- glm(y ~ 1, family = binomial, data = p14_df)
+anova(p14_null, p14_full, test = "Chisq")
+```
+
+**When to use:** More reliable than Wald z-test for small samples.
+
+## 14.6 Report template
+
+> "Logistic regression gives $\hat{\beta} = 1.42$ (SE 0.22), corresponding to OR = 4.14 (95% CI: 2.7, 6.4), $p < 0.001$. A one-unit increase in x multiplies the odds of the outcome by 4.1."
+
+---
+
+# Part 15 — Log-Linear Models
+
+## 15.1 What they do
+
+**Model:** $\log(\mu_{ij}) = \lambda + \lambda_i^A + \lambda_j^B + \lambda_{ij}^{AB}$
+
+Where $\mu_{ij}$ = expected count in cell (i, j).
+
+- No interaction term → independence.
+- Interaction term → association.
+
+**Fits the same models as chi-square** but in a regression framework — useful for 3-way tables.
+
+## 15.2 Fit log-linear model
+
+```{r}
+# --- Self-contained: log-linear model ---
+set.seed(1501)
+p15_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+p15_tab <- table(p15_df$gender, p15_df$smoke)
+
+p15_fit <- loglin(p15_tab, margin = list(c(1, 2)), fit = TRUE)
+p15_fit
+```
+
+**Output:** Likelihood ratio $\chi^2$, Pearson $\chi^2$, df, p-value.
+
+## 15.3 Testing independence
+
+```{r}
+# --- Self-contained: log-linear independence test ---
+set.seed(1502)
+p15_df <- tibble(
+  gender = sample(c("M", "F"), 300, replace = TRUE),
+  smoke  = sample(c("yes", "no"), 300, replace = TRUE)
+)
+p15_tab <- table(p15_df$gender, p15_df$smoke)
+
+# Model without interaction = independence
+p15_fit_ind <- loglin(p15_tab, margin = list(c(1), c(2)))
+p15_fit_ind$lrt
+p15_fit_ind$pvalue
+```
+
+**Interpretation:** Same as chi-square test of independence. Reported as a deviance.
+
+## 15.4 Three-way table
+
+```{r}
+# --- Self-contained: log-linear on 3-way table ---
+set.seed(1503)
+p15_df <- tibble(
+  A = sample(c("a1", "a2"), 400, replace = TRUE),
+  B = sample(c("b1", "b2"), 400, replace = TRUE),
+  C = sample(c("c1", "c2"), 400, replace = TRUE)
+)
+p15_tab <- table(p15_df$A, p15_df$B, p15_df$C)
+
+# Conditional independence: A ⊥ B | C
+p15_fit_ci <- loglin(p15_tab, margin = list(c(1, 3), c(2, 3)))
+p15_fit_ci$lrt
+p15_fit_ci$pvalue
+```
+
+**Margins to test:**
+
+| Model | Margin |
+|---|---|
+| Complete independence | `list(1, 2, 3)` |
+| Joint independence A×B ⊥ C | `list(c(1,2), 3)` |
+| Conditional independence A ⊥ B \| C | `list(c(1,3), c(2,3))` |
+| No three-way interaction | `list(c(1,2), c(1,3), c(2,3))` |
+
+## 15.5 Report template
+
+> "A log-linear model testing conditional independence of A and B given C gives LRT $\chi^2(4) = 6.2$, $p = 0.18$. We fail to reject $H_0$; A and B are conditionally independent given C."
+
+---
+
+# Part 16 — Simpson's Paradox
+
+## 16.1 What it is
+
+An association observed in **combined data** can **reverse or disappear** when you split by a third variable.
+
+**Classic example:** Treatment appears better than control overall, but worse in every subgroup.
+
+## 16.2 Simulate Simpson's paradox
+
+```{r}
+# --- Self-contained: Simpson's paradox ---
+set.seed(1601)
+p16_df <- tibble(
+  treatment = factor(rep(c("A", "B"), each = 100)),
+  severity  = factor(c(rep("mild", 80), rep("severe", 20),
+                       rep("mild", 20), rep("severe", 80))),
+  recovered = c(rbinom(80, 1, 0.9), rbinom(20, 1, 0.3),
+                rbinom(20, 1, 0.8), rbinom(80, 1, 0.2))
+)
+p16_df$recovered <- as.integer(p16_df$recovered)
+
+# Combined
+p16_df %>%
+  group_by(treatment) %>%
+  summarise(p = mean(recovered), .groups = "drop")
+
+# By severity
+p16_df %>%
+  group_by(treatment, severity) %>%
+  summarise(p = mean(recovered), n = n(), .groups = "drop")
+```
+
+**Reading the output:** Combined proportions might favour A, but within each severity level, B might look better (or vice versa) because of imbalanced severity.
+
+## 16.3 Detect and adjust
+
+**Detect:** Compute marginal and conditional proportions. Check for reversal.
+
+**Adjust:** Use Mantel-Haenszel or logistic regression with the confounder.
+
+```{r}
+# --- Self-contained: adjust via logistic regression ---
+set.seed(1602)
+p16_df <- tibble(
+  treatment = factor(rep(c("A", "B"), each = 100)),
+  severity  = factor(c(rep("mild", 80), rep("severe", 20),
+                       rep("mild", 20), rep("severe", 80))),
+  recovered = c(rbinom(80, 1, 0.9), rbinom(20, 1, 0.3),
+                rbinom(20, 1, 0.8), rbinom(80, 1, 0.2))
+)
+
+p16_fit <- glm(recovered ~ treatment + severity,
+               family = binomial, data = p16_df)
+exp(coef(p16_fit))
+```
+
+**Report template**
+
+> "When combining the data, treatment A has a higher recovery rate (74% vs 46%). However, when stratified by severity, treatment B is better in both mild and severe cases. The reversal is due to imbalanced distribution of severity between treatment groups (Simpson's paradox). Adjusting for severity with logistic regression reverses the direction of the treatment effect."
+
+---
+
+# Part 17 — Theory Q&A
+
+**Q: What is the difference between independence and homogeneity?**
+A: Independence: one sample, cross-classified by two variables, testing whether they're associated. Homogeneity: multiple independent samples (one per group), testing whether the response distribution is the same across groups. The chi-square computation is identical; only the design and interpretation differ.
+
+**Q: When do you use Fisher's exact test instead of chi-square?**
+A: When expected counts are small (any < 5), especially for 2×2 tables. Fisher's exact test computes the exact probability of the observed table under independence.
+
+**Q: What is the difference between McNemar's test and chi-square?**
+A: Chi-square tests association in unpaired data. McNemar tests paired data — same subjects measured twice. It uses only the discordant pairs (b, c).
+
+**Q: What does Cramér's V measure?**
+A: Strength of association between two categorical variables in an r×c table. Ranges 0 to 1; not directional.
+
+**Q: What is an odds ratio?**
+A: The ratio of odds of outcome in the exposed group to the odds in the unexposed group. OR > 1 = positive association. Range 0 to ∞.
+
+**Q: When is the odds ratio approximately equal to the relative risk?**
+A: When the outcome is rare (< 10% in both groups). For common outcomes, OR overstates RR.
+
+**Q: What is the Mantel-Haenszel test for?**
+A: Testing association between two binary variables while controlling for a stratifying variable (confounder). Yields a common odds ratio.
+
+**Q: When do you use Cochran's Q?**
+A: 3 or more paired binary measurements (e.g., same subjects measured at 3 time points). Extension of McNemar.
+
+**Q: What is Simpson's paradox?**
+A: When the direction of association in combined data reverses when stratifying by a third variable. Caused by imbalanced confounder distributions.
+
+**Q: What is the difference between a marginal and conditional association?**
+A: Marginal = combined over strata. Conditional = within each stratum. Can differ (Simpson's paradox).
+
+**Q: What does a goodness-of-fit test do?**
+A: Tests whether observed frequencies match a hypothesized distribution. Same computation as independence with a specified `p` argument.
+
+**Q: What is Cohen's w?**
+A: Effect size for chi-square tests: $w = \sqrt{\chi^2/n}$. Benchmarks: 0.1 small, 0.3 medium, 0.5 large.
+
+**Q: What is the difference between a case-control and a cohort study in 2×2 analysis?**
+A: Cohort: sample by exposure, follow for outcome → relative risk is natural. Case-control: sample by outcome, look back at exposure → odds ratio is natural (RR isn't estimable). Chi-square computation is the same.
+
+**Q: Why can't you use a t-test for proportions?**
+A: The variance of a proportion depends on the mean: Var(p) = p(1-p)/n. The z-test uses this relationship; t-tests assume constant variance.
+
+**Q: What is the continuity correction in `chisq.test`?**
+A: A small adjustment for 2×2 tables (Yates' correction). Reduces the risk of overestimating the chi-square statistic. Use `correct = FALSE` to match SPSS or for large samples.
+
+**Q: When can I use a normal approximation for a proportion?**
+A: When $np \geq 5$ and $n(1-p) \geq 5$. For small samples, use exact methods (`binom.test`, `prop.test` with `correct = TRUE`).
+
+**Q: What's the difference between Pearson chi-square and likelihood-ratio chi-square?**
+A: Pearson: $\sum (O - E)^2 / E$. LRT (deviance): $2 \sum O \log(O/E)$. Both are asymptotically $\chi^2$ with the same df. Pearson is standard; LRT is used in logistic regression.
+
+**Q: What does Breslow-Day test?**
+A: Tests whether the odds ratio is the same across strata. If $p > 0.05$, a common OR is meaningful; the Mantel-Haenszel pooled estimate is valid.
+
+**Q: How do I report a chi-square result?**
+A: $\chi^2(df) = \text{value}$, $p = \text{value}$. Include the expected count check and Cramér's V if association is significant.
+
+**Q: Why is logistic regression preferred over stratified analysis?**
+A: It handles multiple confounders simultaneously, uses continuous predictors, and provides adjusted effect estimates efficiently.
+
+**Q: What is an expected count and why does it matter?**
+A: $E_{ij} = (\text{row total} \times \text{column total})/n$ — what we'd expect under independence. The chi-square approximation is only valid if all $E_{ij} \geq 5$.
+
+**Q: How do I know if two proportions are significantly different?**
+A: Use `prop.test()` for two proportions. It gives a chi-square statistic, p-value, and CI for the difference.
+
+**Q: What is a relative risk and when do I use it?**
+A: $RR = p_1/p_0$ = ratio of risks. Use in cohort studies where you know exposure status at baseline and follow for outcome.
+
+**Q: What is a risk difference?**
+A: $RD = p_1 - p_0$. Absolute measure. NNT = 1/|RD|.
+
+**Q: What's the difference between McNemar and Cochran's Q?**
+A: McNemar: 2 paired measurements. Cochran's Q: 3+ paired measurements. Both binary outcome.
+
+---
+
+# Part 18 — Exam Scenarios
+
+## 18.1 "Is there an association between A and B?"
+
+1. `table(A, B)` to build the contingency table.
+2. Check `chisq.test(tab)$expected` — all ≥ 5?
+3. `chisq.test(tab)` — get statistic, df, p.
+4. If significant, `cramers_v(tab)` for strength.
+5. Report: $\chi^2(df) = ...$, $p = ...$, Cramér's V = ... .
+
+## 18.2 "Are the distributions the same across groups?"
+
+Same as independence but described as homogeneity. The test is identical.
+
+## 18.3 "Compare proportions between two groups"
+
+1. `prop.test(x = c(a, c), n = c(n1, n2))`.
+2. Report chi-square, p, difference with CI.
+
+## 18.4 "Test a hypothesis about proportions"
+
+1. `chisq.test(observed, p = expected)` for goodness-of-fit.
+2. Report chi-square, df = k − 1, p.
+
+## 18.5 "Before and after on the same subjects"
+
+1. Build 2×2 paired table.
+2. `mcnemar.test(tab)`.
+3. If b + c < 25, use exact binomial on discordant pairs.
+4. Report $\chi^2(1)$, p.
+
+## 18.6 "Small sample chi-square"
+
+1. Check expected counts.
+2. If any < 5, `fisher.test(tab)`.
+3. Report exact p, odds ratio, CI.
+
+## 18.7 "Association controlling for a third variable"
+
+1. Build the 3-way table.
+2. If binary A, B, and stratifier C, use `mantelhaen.test`.
+3. Report pooled OR and CI.
+4. Check if OR is homogeneous via Breslow-Day or interaction.
+
+## 18.8 "Odds ratio and CI"
+
+1. Compute $OR = ad/bc$.
+2. $\text{SE}(\log OR) = \sqrt{1/a + 1/b + 1/c + 1/d}$.
+3. CI = $\exp(\log OR \pm 1.96 \cdot \text{SE})$.
+4. Report OR, CI, interpretation.
+
+## 18.9 "Effect size for 2×2 or r×c"
+
+- 2×2: phi or OR.
+- r×c: Cramér's V.
+
+## 18.10 "Multiple comparisons in 3+ paired measurements"
+
+1. Run Cochran's Q.
+2. If significant, do pairwise McNemar tests.
+3. Apply Bonferroni: multiply p-values by number of comparisons.
+
+---
+
+# Part 19 — Quick Reference
+
+| Task | Command |
+|---|---|
+| 2-way table | `table(x, y)` |
+| 3-way table | `table(x, y, z)` |
+| Add margins | `addmargins(tab)` |
+| Row % | `prop.table(tab, margin = 1)` |
+| Column % | `prop.table(tab, margin = 2)` |
+| Overall % | `prop.table(tab)` |
+| Chi-square | `chisq.test(tab)` |
+| Expected counts | `chisq.test(tab)$expected` |
+| Residuals | `chisq.test(tab)$residuals` |
+| Simulated p-value | `chisq.test(tab, simulate.p.value = TRUE)` |
+| Goodness-of-fit | `chisq.test(observed, p = expected)` |
+| Fisher exact | `fisher.test(tab)` |
+| Fisher (simulated) | `fisher.test(tab, simulate.p.value = TRUE)` |
+| McNemar | `mcnemar.test(tab)` |
+| Cochran's Q | manual (Part 8.2) |
+| Cramér's V | manual (Part 9.1) |
+| Phi coefficient | manual (Part 9.2) |
+| Odds ratio | manual (Part 10.2) |
+| Relative risk | manual (Part 10.3) |
+| Risk difference | manual (Part 10.4) |
+| NNT | `1 / abs(RD)` |
+| Mantel-Haenszel | `mantelhaen.test(array)` |
+| One proportion | `binom.test(x, n, p)` |
+| Two proportions | `prop.test(c(x1, x2), c(n1, n2))` |
+| Multiple proportions | `prop.test(c(x1, x2, x3), c(n1, n2, n3))` |
+| Logistic regression | `glm(y ~ x, family = binomial)` |
+| Odds ratios from logistic | `exp(coef(fit))`, `exp(confint(fit))` |
+| LRT | `anova(null_fit, full_fit, test = "Chisq")` |
+| Log-linear independence | `loglin(tab, margin = list(c(1), c(2)))` |
+| Log-linear conditional independence | `loglin(tab3, margin = list(c(1,3), c(2,3)))` |
+
+---
+
+# Part 20 — Common Mistakes
+
+1. **Using chi-square with expected counts < 5.** Use Fisher's exact test.
+2. **Forgetting `simulate.p.value = TRUE`** for larger sparse tables.
+3. **Confusing independence and homogeneity.** Same test, different interpretation.
+4. **Reading row % as column %.** Choose based on which variable is the predictor.
+5. **Using `mcnemar.test` on unpaired data.** It's only for paired designs.
+6. **Not using exact McNemar** when $b + c < 25$.
+7. **Reporting chi-square without df.** Always report $\chi^2(df) = ...$.
+8. **Confusing phi (φ) and Cramér's V.** φ for 2×2, V for r×c.
+9. **Reporting Cramér's V without a benchmark.**
+10. **Computing odds ratio from any r×c table.** OR is only for 2×2.
+11. **Reporting OR without a CI.**
+12. **Computing RR in a case-control study.** RR isn't estimable without knowing the underlying cohort.
+13. **Ignoring Simpson's paradox.** Always check for a confounder.
+14. **Forgetting the continuity correction** for `chisq.test` on 2×2 when comparing to SPSS.
+15. **Not testing OR homogeneity before pooling.** Use Breslow-Day.
+16. **Using `prop.test` for a one-proportion problem** when `binom.test` gives exact results.
+17. **Not applying multiple-comparison correction** in post-hoc McNemar tests.
+18. **Interpreting Cramér's V > 1** — the formula caps at 1 but only if you use `min(r-1, c-1)` correctly.
+19. **Forgetting the sign of the phi coefficient.** For 2×2, direction matters.
+20. **Confusing "significant chi-square" with "strong association".** Significance ≠ strength; report effect size.
+
+---
+
+# Part 21 — The Single Most Important Idea
+
+Every categorical question reduces to:
+
+1. **What design?** One sample (independence), multiple samples (homogeneity), paired (McNemar), one variable (goodness-of-fit)?
+2. **Build the table** and check expected counts.
+3. **Choose the right test:** chi-square, Fisher, McNemar, Cochran's Q.
+4. **Measure association:** Cramér's V, phi, OR, RR.
+5. **Report** statistic, df, p-value, effect size, CI, and interpretation.
+
+If you can build a contingency table, run the correct test, and correctly interpret the association, you can answer any categorical question in the exam.
+
+---
+
+*End of cheat sheet. Good luck in the competition.*
+````
+
+---
+
+## What is covered
+
+| Section | Topics |
+|---|---|
+| Part 0 | 30-second strategy |
+| Part 1 | Foundations: nominal/ordinal, contingency tables, expected counts, hypotheses |
+| Part 2 | Building tables: raw, counts, margins, percentages, 3-way |
+| Part 3 | Goodness-of-fit: equal and specific proportions |
+| Part 4 | Independence: full test + residuals + simulated p |
+| Part 5 | Homogeneity |
+| Part 6 | Fisher exact: 2×2 and larger, one-sided |
+| Part 7 | McNemar (paired): exact and asymptotic |
+| Part 8 | Cochran's Q (3+ paired) |
+| Part 9 | Cramér's V, phi, contingency coefficient, Yule's Q |
+| Part 10 | OR, RR, RD, NNT with CIs |
+| Part 11 | Mantel-Haenszel + Breslow-Day |
+| Part 12 | Proportion tests: one, two, many |
+| Part 13 | Sample size and power |
+| Part 14 | Logistic regression preview |
+| Part 15 | Log-linear models for 3-way tables |
+| Part 16 | Simpson's paradox |
+| Part 17 | Theory Q&A (25 questions) |
+| Part 18 | Exam scenarios (10 step-by-step answers) |
+| Part 19 | Quick reference table |
+| Part 20 | Common mistakes (20 traps) |
+| Part 21 | Single most important idea |
+
+**Design consistency:** Every chunk is self-contained with section-prefixed names (`p4_tab`, `p11_array`, `p14_fit`). Copy-paste any chunk into a fresh R session and it works.

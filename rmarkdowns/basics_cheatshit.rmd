@@ -1,0 +1,2324 @@
+---
+title: "The Ultimate R Basics Cheat Sheet"
+author: "Parsa"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(knitr)
+```
+
+# How to Use This Cheat Sheet
+
+This is a complete R reference. Every section is independent. Find what you need, copy the pattern, change the names.
+
+| Topic | Section |
+|---|---|
+| Assign variables | 3 |
+| Know data types | 4 |
+| Build vectors, lists, data frames | 5 |
+| Subset data with `[`, `[[`, `$` | 6 |
+| Arithmetic, comparison, logic | 7 |
+| Pipe `|>` and `%>%` | 8 |
+| Write functions | 9 |
+| If/else, loops, apply family | 10 |
+| Strings | 11 |
+| Factors | 12 |
+| Dates | 13 |
+| Missing values | 14 |
+| Read/write files | 15 |
+| dplyr: filter, select, mutate, arrange | 16 |
+| Grouped summaries | 17 |
+| tidyr: pivot, separate, unite | 18 |
+| Joins | 19 |
+| purrr: map family | 20 |
+| Base R plots | 21 |
+| ggplot2 plots | 22 |
+| Statistical functions | 23 |
+| Random numbers | 24 |
+| Vectorization vs loops | 25 |
+| Debugging | 26 |
+| Common errors | 27 |
+| Packages | 28 |
+| RStudio shortcuts | 29 |
+
+---
+
+# Part 0 — The 30-Second Survival Guide
+
+If you only remember five things:
+
+1. **Assign with `<-`**: `x <- 5`.
+2. **Call functions with parentheses**: `mean(x)`.
+3. **Index with square brackets**: `x[1]`, `df[1, 2]`, `df$col`.
+4. **Pipe chains operations**: `x |> mean() |> round(2)`.
+5. **Get help with `?`**: `?mean`.
+
+Everything else is syntax you can look up.
+
+---
+
+# Part 1 — Installing and Loading Packages
+
+## 1.1 Install once
+
+```{r eval=FALSE}
+install.packages("tidyverse")
+install.packages(c("forecast", "car", "lmtest"))
+```
+
+## 1.2 Load every session
+
+```{r eval=FALSE}
+library(tidyverse)
+library(forecast)
+```
+
+**Rules:**
+- `install.packages()` needs quotes around the name.
+- `library()` does **not** need quotes.
+- You only install once; you load every session.
+
+## 1.3 See what's installed and loaded
+
+```{r}
+# All installed packages
+length(rownames(installed.packages()))
+
+# Currently loaded
+search()
+```
+
+## 1.4 Update
+
+```{r eval=FALSE}
+update.packages(ask = FALSE)
+```
+
+---
+
+# Part 2 — Getting Help
+
+| What you want | How |
+|---|---|
+| Function help | `?mean` |
+| Function help (alt) | `help("mean")` |
+| Search help | `??regression` |
+| See arguments | `args(lm)` |
+| See examples | `example(lm)` |
+| See source code | `lm` (just type the name, no parens) |
+| Vignettes | `vignette("dplyr")` |
+| Package help | `help(package = "dplyr")` |
+
+```{r}
+# --- Self-contained: help examples ---
+?mean
+args(lm)
+```
+
+**Tip:** In RStudio, highlight a function name and press **F1** to open help.
+
+---
+
+# Part 3 — Variables and Assignment
+
+## 3.1 Assignment operators
+
+```{r}
+# --- Self-contained: assignment ---
+p3_x <- 5         # standard
+p3_y = 10         # works, but not idiomatic
+15 -> p3_z        # right-to-left (rare)
+
+p3_x
+p3_y
+p3_z
+```
+
+**Use `<-`**. Reserve `=` for function arguments.
+
+## 3.2 Naming rules
+
+- Start with a letter (or `.` not followed by a digit).
+- Can contain letters, digits, `.`, `_`.
+- **Case-sensitive**: `x` and `X` are different.
+- Avoid `c`, `T`, `F`, `mean` — they're built-in.
+
+**Valid:** `my_var`, `x1`, `myVar`, `data.2024`
+**Invalid:** `1x`, `my-var`, `my var`
+
+## 3.3 List and remove objects
+
+```{r}
+# --- Self-contained: list and remove objects ---
+p3_a <- 1
+p3_b <- 2
+p3_c <- 3
+
+ls()                    # list objects (in this session, many exist)
+ls(pattern = "^p3_")    # list by pattern
+rm(p3_a)                # remove one
+rm(list = ls(pattern = "^p3_"))   # remove all p3_ objects
+```
+
+## 3.4 Data types overview
+
+| Type | Example | Check with |
+|---|---|---|
+| `numeric` (double) | `3.14`, `-1.5e3` | `is.numeric(x)` |
+| `integer` | `5L`, `-2L` | `is.integer(x)` |
+| `character` | `"hello"`, `'hi'` | `is.character(x)` |
+| `logical` | `TRUE`, `FALSE`, `T`, `F` | `is.logical(x)` |
+| `complex` | `3 + 2i` | `is.complex(x)` |
+| `factor` | `factor(c("a","b"))` | `is.factor(x)` |
+| `Date` | `as.Date("2024-01-01")` | `is.Date(x)` |
+
+---
+
+# Part 4 — Data Types in Detail
+
+## 4.1 Numeric
+
+```{r}
+# --- Self-contained: numeric ---
+p4_a <- 3.14
+p4_b <- 1e3        # 1000
+p4_c <- -2.5
+p4_d <- 5L         # integer (add L)
+
+class(p4_a)        # "numeric"
+class(p4_d)        # "integer"
+is.numeric(p4_a)   # TRUE
+is.integer(p4_a)   # FALSE
+```
+
+**Note:** By default, numbers are `numeric` (double). Use `L` suffix for integers.
+
+## 4.2 Character
+
+```{r}
+# --- Self-contained: character ---
+p4_name <- "Parsa"
+p4_greeting <- 'Hello'
+p4_sentence <- "She said \"hi\""
+
+nchar(p4_name)         # number of characters
+toupper(p4_name)
+tolower(p4_name)
+paste(p4_greeting, p4_name)
+paste0(p4_greeting, ", ", p4_name, "!")
+```
+
+**Rule:** Single and double quotes are equivalent. Use `\"` to escape quotes inside a string.
+
+## 4.3 Logical
+
+```{r}
+# --- Self-contained: logical ---
+p4_t <- TRUE
+p4_f <- FALSE
+p4_cmp <- 3 > 2     # TRUE
+p4_neg <- !p4_t     # FALSE
+
+p4_t & p4_f         # AND -> FALSE
+p4_t | p4_f         # OR  -> TRUE
+p4_t && p4_f        # AND (scalar) -> FALSE
+p4_t || p4_f        # OR  (scalar) -> TRUE
+```
+
+`&` and `|` are vectorized; `&&` and `||` short-circuit and return one value.
+
+## 4.4 Coercion
+
+R converts between types when forced. Order of precedence: **logical < integer < numeric < character**.
+
+```{r}
+# --- Self-contained: coercion ---
+p4_mixed <- c(1, 2, "three")   # all become character
+p4_mixed
+class(p4_mixed)
+
+as.numeric("3.14")             # 3.14
+as.numeric("abc")              # NA with warning
+as.character(42)               # "42"
+as.logical(0)                  # FALSE
+as.logical(1)                  # TRUE
+```
+
+**Force conversion explicitly** with `as.*()` to avoid surprises.
+
+## 4.5 Type check and convert
+
+```{r}
+# --- Self-contained: type checks ---
+p4_v <- c(1, 2, 3)
+
+is.numeric(p4_v)
+is.character(p4_v)
+is.vector(p4_v)
+as.character(p4_v)
+```
+
+---
+
+# Part 5 — Data Structures
+
+## 5.1 Vector (1D, same type)
+
+```{r}
+# --- Self-contained: vectors ---
+p5_num  <- c(1, 2, 3, 4, 5)
+p5_chr  <- c("a", "b", "c")
+p5_lgl  <- c(TRUE, FALSE, TRUE)
+p5_seq  <- 1:10
+p5_rep  <- rep(1:3, times = 2)     # 1 2 3 1 2 3
+p5_rep2 <- rep(1:3, each = 2)      # 1 1 2 2 3 3
+p5_seq2 <- seq(0, 1, by = 0.25)    # 0.00 0.25 0.50 0.75 1.00
+
+length(p5_num)
+length(p5_chr)
+```
+
+## 5.2 Matrix (2D, same type)
+
+```{r}
+# --- Self-contained: matrices ---
+p5_mat <- matrix(1:12, nrow = 3, ncol = 4)
+p5_mat
+p5_mat2 <- matrix(1:12, nrow = 3, byrow = TRUE)
+p5_mat2
+
+dim(p5_mat)          # 3 4
+nrow(p5_mat); ncol(p5_mat)
+t(p5_mat)            # transpose
+p5_mat %*% t(p5_mat) # matrix multiplication
+```
+
+## 5.3 Array (nD, same type)
+
+```{r}
+# --- Self-contained: arrays ---
+p5_arr <- array(1:24, dim = c(2, 3, 4))
+dim(p5_arr)
+p5_arr[1, 2, 3]      # one element
+```
+
+## 5.4 List (1D, mixed types)
+
+```{r}
+# --- Self-contained: lists ---
+p5_list <- list(
+  name  = "Parsa",
+  age   = 25,
+  scores = c(90, 85, 88),
+  passed = TRUE
+)
+p5_list
+p5_list$name
+p5_list[["age"]]
+p5_list[[3]]           # the scores vector
+length(p5_list)
+names(p5_list)
+```
+
+## 5.5 Data frame (2D, mixed types, columns same length)
+
+```{r}
+# --- Self-contained: data frame ---
+p5_df <- data.frame(
+  id   = 1:4,
+  name = c("A", "B", "C", "D"),
+  score = c(90, 85, 88, 92)
+)
+p5_df
+str(p5_df)
+summary(p5_df)
+nrow(p5_df); ncol(p5_df)
+names(p5_df)
+```
+
+## 5.6 Tibble (modern data frame)
+
+```{r}
+# --- Self-contained: tibble ---
+p5_tib <- tibble(
+  id    = 1:4,
+  name  = c("A", "B", "C", "D"),
+  score = c(90, 85, 88, 92)
+)
+p5_tib
+class(p5_tib)
+```
+
+**Tibble vs data.frame:**
+- Tibbles print nicely (no row-name clutter, only first 10 rows shown).
+- Tibbles don't auto-convert strings to factors (R ≥ 4.0).
+- Tibbles allow list-columns.
+
+## 5.7 Summary: which structure to use
+
+| Need | Use |
+|---|---|
+| One column of data | vector |
+| Table of same-type numbers (math) | matrix |
+| Multi-dimensional numeric array | array |
+| Mixed-type container | list |
+| Table with named columns | tibble (or data.frame) |
+
+---
+
+# Part 6 — Indexing and Subsetting
+
+## 6.1 Vectors
+
+```{r}
+# --- Self-contained: vector indexing ---
+p6_v <- c(10, 20, 30, 40, 50)
+
+p6_v[1]         # 10 (first)
+p6_v[c(1, 3)]   # 10 30
+p6_v[-2]        # remove 2nd -> 10 30 40 50
+p6_v[2:4]       # 20 30 40
+p6_v[p6_v > 25] # 30 40 50
+p6_v[c(TRUE, FALSE, TRUE, FALSE, TRUE)]  # 10 30 50
+```
+
+**Warning:** R indexing starts at 1, not 0.
+
+## 6.2 Matrices
+
+```{r}
+# --- Self-contained: matrix indexing ---
+p6_m <- matrix(1:12, nrow = 3)
+p6_m
+p6_m[1, 1]        # row 1, column 1
+p6_m[1, ]         # row 1
+p6_m[, 2]         # column 2
+p6_m[1:2, 2:3]    # submatrix
+p6_m[p6_m > 5]    # vector of elements > 5
+```
+
+## 6.3 Data frames / tibbles
+
+```{r}
+# --- Self-contained: data frame indexing ---
+p6_df <- tibble(
+  id    = 1:4,
+  name  = c("A", "B", "C", "D"),
+  score = c(90, 85, 88, 92)
+)
+p6_df
+p6_df[1, ]            # row 1
+p6_df[, "score"]      # column by name (returns tibble)
+p6_df$score           # column by $ (returns vector)
+p6_df[["score"]]      # column by [[ (returns vector)
+p6_df$score[2]        # 2nd element of score
+p6_df[p6_df$score > 87, ]   # rows where score > 87
+```
+
+## 6.4 Lists
+
+```{r}
+# --- Self-contained: list indexing ---
+p6_l <- list(a = 1, b = 2:4, c = "hi")
+
+p6_l[1]         # sub-list with one element
+p6_l[[1]]       # the element itself (numeric 1)
+p6_l$b          # the vector 2:4
+p6_l[["b"]]     # same
+p6_l$b[2]       # 3
+```
+
+**Rule:** `[` returns a container, `[[` returns the contents.
+
+## 6.5 `$` vs `[[` vs `[`
+
+| Access | Returns | Use for |
+|---|---|---|
+| `df$col` | vector | one column by name |
+| `df[["col"]]` | vector | one column, programmatic |
+| `df["col"]` | tibble | one column, keep as tibble |
+| `df[1]` | tibble | first column |
+| `df[1, ]` | tibble | first row |
+| `df[[1]]` | vector | first column, contents |
+
+## 6.6 Named vectors
+
+```{r}
+# --- Self-contained: named vectors ---
+p6_named <- c(a = 1, b = 2, c = 3)
+p6_named["b"]     # 2
+p6_named[["b"]]   # 2
+names(p6_named)   # "a" "b" "c"
+```
+
+---
+
+# Part 7 — Operators
+
+## 7.1 Arithmetic
+
+```{r}
+# --- Self-contained: arithmetic ---
+7 + 3      # 10
+7 - 3      # 4
+7 * 3      # 21
+7 / 3      # 2.333...
+7 %/% 3    # 2  (integer division)
+7 %% 3     # 1  (modulo)
+7 ^ 3      # 343
+sqrt(16)   # 4
+abs(-5)    # 5
+exp(1)     # 2.718...
+log(100)   # natural log
+log10(100) # 2
+log2(8)    # 3
+```
+
+## 7.2 Comparison
+
+```{r}
+# --- Self-contained: comparison ---
+3 == 3     # TRUE
+3 != 4     # TRUE
+3 < 4      # TRUE
+3 <= 4     # TRUE
+3 > 4      # FALSE
+3 >= 4     # FALSE
+"a" < "b"  # TRUE (alphabetical)
+```
+
+**Warning:** `==` is comparison, `=` is assignment.
+
+## 7.3 Logical
+
+```{r}
+# --- Self-contained: logical ---
+TRUE & TRUE     # TRUE
+TRUE & FALSE    # FALSE
+TRUE | FALSE    # TRUE
+!TRUE           # FALSE
+
+# Short-circuit (scalar, stops early)
+TRUE && FALSE   # FALSE
+TRUE || FALSE   # TRUE
+
+# Vectorized
+c(TRUE, FALSE) & c(TRUE, TRUE)   # TRUE FALSE
+```
+
+## 7.4 Membership and matching
+
+```{r}
+# --- Self-contained: membership ---
+3 %in% c(1, 2, 3)       # TRUE
+"a" %in% c("a", "b")    # TRUE
+c(1, 2, 3) %in% c(2, 3) # FALSE TRUE TRUE
+
+match(c("b", "a"), c("a", "b", "c"))   # 2 1
+```
+
+## 7.5 Pipe operators
+
+```{r}
+# --- Self-contained: pipes ---
+set.seed(701)
+p7_v <- rnorm(10)
+
+# Without pipe
+round(mean(p7_v), 2)
+
+# Base pipe (R >= 4.1)
+p7_v |> mean() |> round(2)
+
+# magrittr pipe (tidyverse)
+p7_v %>% mean() %>% round(2)
+```
+
+**Rule:** `x |> f()` is the same as `f(x)`. Pipes pass the left side as the **first** argument of the right side.
+
+**Placeholder for non-first argument:**
+```{r}
+# --- Self-contained: pipe with placeholder ---
+p7_x <- c(1, NA, 3)
+p7_x |> mean(na.rm = TRUE)   # works
+# p7_x |> mean(x = _)         # _ only with base pipe, R >= 4.2
+```
+
+## 7.6 Special values
+
+```{r}
+# --- Self-contained: special values ---
+Inf          # positive infinity
+-Inf
+NaN          # Not a Number (0/0)
+NA           # missing
+NULL         # empty / no value
+
+1/0          # Inf
+0/0          # NaN
+NA + 1       # NA
+is.na(NA)    # TRUE
+is.nan(NaN)  # TRUE
+is.null(NULL)# TRUE
+```
+
+---
+
+# Part 8 — The Pipe in Depth
+
+## 8.1 Why pipe
+
+Without pipe:
+```{r}
+# --- Self-contained: without pipe ---
+set.seed(801)
+p8_v <- rnorm(20)
+round(sqrt(mean(p8_v^2)), 3)
+```
+
+With pipe:
+```{r}
+# --- Self-contained: with pipe ---
+set.seed(802)
+p8_v <- rnorm(20)
+p8_v |> (\(x) x^2)() |> mean() |> sqrt() |> round(3)
+```
+
+The pipe helps readability when operations are nested.
+
+## 8.2 Pipe with data frames
+
+```{r}
+# --- Self-contained: pipe with dplyr ---
+set.seed(803)
+p8_df <- tibble(x = rnorm(20), y = rnorm(20))
+
+p8_df |>
+  filter(x > 0) |>
+  mutate(z = x + y) |>
+  summarise(mean_z = mean(z))
+```
+
+## 8.3 Common pipe mistake
+
+```{r eval=FALSE}
+# --- WRONG ---
+# p8_df |> filter(x > 0) |> lm(y ~ x)   # lm expects data = first arg, but gets filtered df
+
+# --- RIGHT ---
+p8_df |> filter(x > 0) |> (\(d) lm(y ~ x, data = d))()
+```
+
+**Rule:** Pipe passes left side as **first argument**. If you need a different argument, wrap the function in an anonymous function `\(x) ...` (R ≥ 4.1) or `function(x) ...`.
+
+---
+
+# Part 9 — Functions
+
+## 9.1 Calling functions
+
+```{r}
+# --- Self-contained: calling functions ---
+mean(c(1, 2, 3))                     # 2
+mean(x = c(1, 2, 3))                 # same, named arg
+round(3.14159, digits = 2)           # 3.14
+sample(1:10, size = 3, replace = TRUE)
+```
+
+**Named arguments** can be in any order. **Positional arguments** must be in order.
+
+## 9.2 Common math/stat functions
+
+```{r}
+# --- Self-contained: common functions ---
+p9_x <- c(3, 1, 4, 1, 5, 9, 2, 6)
+
+mean(p9_x)
+median(p9_x)
+sd(p9_x)          # standard deviation
+var(p9_x)         # variance
+min(p9_x)
+max(p9_x)
+range(p9_x)       # min and max
+sum(p9_x)
+prod(p9_x)
+length(p9_x)
+quantile(p9_x, c(0.25, 0.5, 0.75))
+summary(p9_x)
+```
+
+## 9.3 Writing your own function
+
+```{r}
+# --- Self-contained: user function ---
+p9_add <- function(a, b) {
+  a + b
+}
+p9_add(2, 3)
+
+p9_square <- function(x) x^2
+p9_square(4)
+
+# With default argument
+p9_power <- function(x, p = 2) x^p
+p9_power(3)       # 9
+p9_power(3, 3)    # 27
+
+# Returning multiple values (list)
+p9_stats <- function(x) {
+  list(mean = mean(x), sd = sd(x), n = length(x))
+}
+p9_stats(p9_x)
+```
+
+## 9.4 Anonymous functions
+
+```{r}
+# --- Self-contained: anonymous functions ---
+# R >= 4.1
+p9_result1 <- (\(x) x^2)(5)
+p9_result1
+
+# Classic
+p9_result2 <- (function(x) x^2)(5)
+p9_result2
+
+# With sapply
+sapply(1:3, \(x) x^2)
+```
+
+## 9.5 `...` (dots)
+
+Pass extra arguments through:
+
+```{r}
+# --- Self-contained: dots ---
+p9_mean_safe <- function(x, ...) {
+  mean(x, ...)
+}
+p9_mean_safe(c(1, NA, 3), na.rm = TRUE)
+```
+
+## 9.6 Scope
+
+```{r}
+# --- Self-contained: scope ---
+p9_global <- 10
+
+p9_test <- function() {
+  p9_local <- 5
+  p9_global + p9_local   # can read global
+}
+p9_test()
+# p9_local   # ERROR: not found (it's local to p9_test)
+```
+
+**Rule:** Functions can read globals but cannot modify them without `<<-`.
+
+---
+
+# Part 10 — Control Flow
+
+## 10.1 if / else
+
+```{r}
+# --- Self-contained: if/else ---
+p10_x <- 7
+
+if (p10_x > 5) {
+  p10_result <- "big"
+} else if (p10_x > 2) {
+  p10_result <- "medium"
+} else {
+  p10_result <- "small"
+}
+p10_result
+```
+
+**Vectorized version:** `ifelse(test, yes, no)`.
+
+```{r}
+# --- Self-contained: ifelse ---
+p10_v <- c(-1, 0, 1, 2)
+ifelse(p10_v > 0, "pos", "non-pos")
+```
+
+**Note:** `ifelse` evaluates both branches. For type-stable, use `dplyr::if_else()`.
+
+```{r}
+# --- Self-contained: dplyr::if_else ---
+p10_v2 <- c(-1, 0, 1, 2)
+dplyr::if_else(p10_v2 > 0, "pos", "non-pos")
+```
+
+## 10.2 for loop
+
+```{r}
+# --- Self-contained: for loop ---
+p10_sum <- 0
+for (i in 1:5) {
+  p10_sum <- p10_sum + i
+}
+p10_sum
+
+# Loop over a vector
+p10_fruits <- c("apple", "banana", "cherry")
+for (f in p10_fruits) {
+  cat("Fruit:", f, "\n")
+}
+```
+
+## 10.3 while loop
+
+```{r}
+# --- Self-contained: while loop ---
+p10_i <- 1
+while (p10_i <= 5) {
+  cat("i =", p10_i, "\n")
+  p10_i <- p10_i + 1
+}
+```
+
+## 10.4 break and next
+
+```{r}
+# --- Self-contained: break and next ---
+for (i in 1:10) {
+  if (i == 3) next    # skip 3
+  if (i == 7) break   # stop at 7
+  cat(i, " ")
+}
+```
+
+## 10.5 Vectorization (preferred over loops)
+
+```{r}
+# --- Self-contained: vectorization beats loops ---
+set.seed(1001)
+p10_v <- rnorm(1e6)
+
+# Bad: loop
+p10_slow <- numeric(length(p10_v))
+for (i in seq_along(p10_v)) p10_slow[i] <- p10_v[i] * 2
+
+# Good: vectorized
+p10_fast <- p10_v * 2
+
+identical(p10_slow, p10_fast)
+```
+
+## 10.6 The apply family
+
+```{r}
+# --- Self-contained: apply family ---
+p10_mat <- matrix(1:12, nrow = 3)
+
+# apply: matrix -> vector
+apply(p10_mat, 1, sum)   # row sums
+apply(p10_mat, 2, sum)   # column sums
+
+# lapply: list/vector -> list
+p10_list <- list(a = 1:3, b = 4:6, c = 7:9)
+lapply(p10_list, sum)
+
+# sapply: list/vector -> vector (when possible)
+sapply(p10_list, sum)
+
+# vapply: like sapply but type-safe
+vapply(p10_list, sum, numeric(1))
+
+# tapply: split-apply-combine on groups
+p10_groups <- c("A", "A", "B", "B", "A")
+p10_values <- c(1, 2, 3, 4, 5)
+tapply(p10_values, p10_groups, mean)
+
+# mapply: multivariate apply
+mapply(function(x, y) x + y, 1:3, 4:6)
+```
+
+---
+
+# Part 11 — Strings
+
+## 11.1 Basics
+
+```{r}
+# --- Self-contained: strings ---
+p11_s <- "Hello, World!"
+
+nchar(p11_s)             # 13
+toupper(p11_s)
+tolower(p11_s)
+substr(p11_s, 1, 5)      # "Hello"
+substring(p11_s, 8)      # "World!"
+strsplit(p11_s, ", ")[[1]]   # c("Hello", "World!")
+
+paste("a", "b", "c")             # "a b c"
+paste0("a", "b", "c")            # "abc"
+paste(c("a", "b"), 1:2, sep = "-")   # "a-1" "b-2"
+```
+
+## 11.2 Pattern matching
+
+```{r}
+# --- Self-contained: pattern matching ---
+p11_s <- c("apple", "banana", "cherry", "apricot")
+
+grep("ap", p11_s)              # 1 4 (indices)
+grep("ap", p11_s, value = TRUE) # "apple" "apricot"
+grepl("ap", p11_s)             # TRUE FALSE FALSE TRUE
+
+sub("a", "A", p11_s)           # replace first
+gsub("a", "A", p11_s)          # replace all
+```
+
+## 11.3 stringr (tidyverse)
+
+```{r}
+# --- Self-contained: stringr ---
+p11_s <- c("apple", "banana", "cherry", "apricot")
+
+str_detect(p11_s, "an")        # FALSE TRUE FALSE FALSE
+str_replace(p11_s, "a", "A")
+str_replace_all(p11_s, "a", "A")
+str_sub(p11_s, 1, 3)           # first 3 characters
+str_length(p11_s)
+str_to_upper(p11_s)
+str_trim("  hello  ")
+str_pad("hi", 5, side = "left")
+str_split("a,b,c", ",")[[1]]
+```
+
+## 11.4 Printing strings
+
+```{r}
+# --- Self-contained: printing ---
+p11_name <- "Parsa"
+p11_age  <- 25
+
+cat("My name is", p11_name, "and I am", p11_age, "years old.\n")
+print(paste("My name is", p11_name))
+
+# sprintf for formatting
+sprintf("Name: %s, Age: %d", p11_name, p11_age)
+sprintf("Pi to 2 decimals: %.2f", pi)
+```
+
+**`cat`** for messages, **`print`** for objects, **`sprintf`** for formatted output.
+
+## 11.5 Glue
+
+```{r}
+# --- Self-contained: glue ---
+library(glue)
+p11_name <- "Parsa"
+p11_age  <- 25
+glue("My name is {p11_name} and I am {p11_age} years old.")
+```
+
+---
+
+# Part 12 — Factors
+
+## 12.1 Creating factors
+
+```{r}
+# --- Self-contained: factors ---
+p12_f <- factor(c("low", "high", "medium", "low", "high"))
+p12_f
+levels(p12_f)     # alphabetical by default
+nlevels(p12_f)
+```
+
+## 12.2 Setting level order
+
+```{r}
+# --- Self-contained: factor levels ---
+p12_f <- factor(c("low", "high", "medium", "low", "high"),
+                levels = c("low", "medium", "high"))
+p12_f
+levels(p12_f)
+```
+
+## 12.3 Changing the reference level
+
+```{r}
+# --- Self-contained: relevel ---
+p12_f <- factor(c("A", "B", "C", "A", "B"))
+p12_f2 <- relevel(p12_f, ref = "B")
+levels(p12_f2)
+```
+
+## 12.4 Table and counts
+
+```{r}
+# --- Self-contained: factor tables ---
+p12_f <- factor(c("low", "high", "medium", "low", "high"))
+
+table(p12_f)
+prop.table(table(p12_f))
+```
+
+## 12.5 Convert to/from factor
+
+```{r}
+# --- Self-contained: factor conversion ---
+p12_chr <- c("a", "b", "a", "c")
+p12_f   <- factor(p12_chr)
+as.character(p12_f)
+as.numeric(p12_f)        # 1 2 1 3 (level codes)
+as.integer(p12_f)
+```
+
+**Warning:** `as.numeric(factor)` returns level codes, not the original numbers. To get original: `as.numeric(as.character(f))`.
+
+## 12.6 forcats (tidyverse)
+
+```{r}
+# --- Self-contained: forcats ---
+library(forcats)
+p12_f <- factor(c("low", "high", "medium", "low", "high"))
+
+fct_relevel(p12_f, "high")
+fct_reorder(p12_f, c(1, 3, 2, 1, 3))   # reorder by a numeric
+fct_infreq(p12_f)                       # most frequent first
+fct_lump(p12_f, n = 2)                  # keep top 2, lump rest
+```
+
+---
+
+# Part 13 — Dates
+
+## 13.1 Creating dates
+
+```{r}
+# --- Self-contained: dates ---
+p13_d <- as.Date("2024-01-15")
+p13_d
+class(p13_d)
+
+p13_d2 <- as.Date("15/01/2024", format = "%d/%m/%Y")
+p13_d2
+
+p13_dt <- as.POSIXct("2024-01-15 10:30:00", tz = "UTC")
+p13_dt
+```
+
+## 13.2 Components
+
+```{r}
+# --- Self-contained: date components ---
+p13_d <- as.Date("2024-01-15")
+
+format(p13_d, "%Y")   # "2024"
+format(p13_d, "%m")   # "01"
+format(p13_d, "%d")   # "15"
+format(p13_d, "%A")   # "Monday"
+format(p13_d, "%B")   # "January"
+
+weekdays(p13_d)
+months(p13_d)
+quarters(p13_d)
+```
+
+## 13.3 Arithmetic
+
+```{r}
+# --- Self-contained: date arithmetic ---
+p13_d <- as.Date("2024-01-15")
+
+p13_d + 7                # one week later
+p13_d - 30               # 30 days earlier
+p13_d2 <- as.Date("2024-02-15")
+p13_d2 - p13_d           # Time difference of 31 days
+as.numeric(p13_d2 - p13_d)
+```
+
+## 13.4 Sequences
+
+```{r}
+# --- Self-contained: date sequences ---
+p13_seq <- seq(as.Date("2024-01-01"), by = "month", length.out = 6)
+p13_seq
+
+seq(as.Date("2024-01-01"), as.Date("2024-12-31"), by = "quarter")
+```
+
+## 13.5 lubridate
+
+```{r}
+# --- Self-contained: lubridate ---
+library(lubridate)
+p13_d <- ymd("2024-01-15")
+p13_d
+year(p13_d)
+month(p13_d)
+day(p13_d)
+wday(p13_d, label = TRUE)
+p13_d + weeks(2)
+p13_d %m+% months(1)     # month arithmetic with rollover
+```
+
+---
+
+# Part 14 — Missing Values
+
+## 14.1 Detecting
+
+```{r}
+# --- Self-contained: missing values ---
+p14_v <- c(1, NA, 3, NA, 5)
+
+is.na(p14_v)          # FALSE TRUE FALSE TRUE FALSE
+anyNA(p14_v)          # TRUE
+sum(is.na(p14_v))     # 2
+mean(is.na(p14_v))    # 0.4 (fraction missing)
+complete.cases(p14_v) # TRUE FALSE TRUE FALSE TRUE
+```
+
+## 14.2 Removing
+
+```{r}
+# --- Self-contained: remove NAs ---
+p14_v <- c(1, NA, 3, NA, 5)
+p14_v[!is.na(p14_v)]     # 1 3 5
+na.omit(p14_v)           # same, with attribute
+```
+
+## 14.3 Functions with `na.rm`
+
+```{r}
+# --- Self-contained: na.rm ---
+p14_v <- c(1, NA, 3, NA, 5)
+mean(p14_v)                # NA
+mean(p14_v, na.rm = TRUE)  # 3
+sum(p14_v, na.rm = TRUE)
+sd(p14_v, na.rm = TRUE)
+```
+
+## 14.4 Filling / replacing
+
+```{r}
+# --- Self-contained: fill NAs ---
+p14_v <- c(1, NA, 3, NA, 5)
+
+# Replace with zero
+p14_v[is.na(p14_v)] <- 0
+
+# Replace with mean
+p14_v2 <- c(1, NA, 3, NA, 5)
+p14_v2[is.na(p14_v2)] <- mean(p14_v2, na.rm = TRUE)
+
+# Forward fill (last observation carried forward)
+p14_v3 <- c(1, NA, NA, 4, NA)
+p14_filled <- zoo::na.locf(p14_v3)
+
+# Interpolation
+p14_interp <- approx(seq_along(p14_v3), p14_v3, xout = seq_along(p14_v3))$y
+```
+
+## 14.5 NA in data frames
+
+```{r}
+# --- Self-contained: NA in tibbles ---
+p14_df <- tibble(
+  x = c(1, NA, 3),
+  y = c("a", "b", NA)
+)
+p14_df
+
+tidyr::drop_na(p14_df)          # drop rows with any NA
+tidyr::replace_na(p14_df, list(x = 0, y = "unknown"))
+```
+
+## 14.6 NA vs NULL vs NaN
+
+| Value | Meaning | In vector |
+|---|---|---|
+| `NA` | missing | stays in vector |
+| `NULL` | empty / no value | disappears |
+| `NaN` | not a number (0/0) | stays |
+| `Inf` | infinity | stays |
+
+```{r}
+# --- Self-contained: NA vs NULL vs NaN ---
+length(c(1, NA, 3))    # 3
+length(c(1, NULL, 3))  # 2
+length(c(1, NaN, 3))   # 3
+```
+
+---
+
+# Part 15 — Reading and Writing Files
+
+## 15.1 CSV
+
+```{r eval=FALSE}
+# --- Read ---
+df <- read.csv("data.csv")
+df <- read_csv("data.csv")          # tidyverse, faster
+df <- read.csv("data.csv", stringsAsFactors = FALSE)
+
+# --- Write ---
+write.csv(df, "out.csv", row.names = FALSE)
+write_csv(df, "out.csv")
+```
+
+## 15.2 Excel
+
+```{r eval=FALSE}
+library(readxl)
+df <- read_excel("data.xlsx", sheet = 1)
+```
+
+## 15.3 RDS (R's native format — preserves types)
+
+```{r eval=FALSE}
+saveRDS(df, "data.rds")
+df <- readRDS("data.rds")
+```
+
+## 15.4 RData (multiple objects)
+
+```{r eval=FALSE}
+save(df, fit, file = "workspace.RData")
+load("workspace.RData")
+```
+
+## 15.5 Text files
+
+```{r eval=FALSE}
+writeLines(c("line 1", "line 2"), "out.txt")
+readLines("out.txt")
+```
+
+## 15.6 From clipboard
+
+```{r eval=FALSE}
+df <- read.table("clipboard", header = TRUE)   # Windows
+df <- read.table(pipe("pbpaste"), header = TRUE)  # macOS
+```
+
+## 15.7 Inspect files
+
+```{r}
+# --- Self-contained: inspect a data frame ---
+set.seed(1501)
+p15_df <- tibble(x = rnorm(5), y = letters[1:5])
+
+head(p15_df)          # first 6 rows
+head(p15_df, 3)       # first 3 rows
+tail(p15_df)
+str(p15_df)           # structure
+glimpse(p15_df)       # tidyverse structure
+summary(p15_df)
+dim(p15_df)
+names(p15_df)
+```
+
+---
+
+# Part 16 — Data Manipulation with dplyr
+
+## 16.1 The five verbs
+
+```{r}
+# --- Self-contained: dplyr verbs ---
+library(dplyr)
+set.seed(1601)
+p16_df <- tibble(
+  id    = 1:6,
+  name  = c("A", "B", "C", "D", "E", "F"),
+  score = c(90, 85, 88, 92, 79, 95),
+  group = c("X", "X", "Y", "Y", "X", "Y")
+)
+
+# filter: keep rows
+p16_df |> filter(score > 85)
+
+# select: keep columns
+p16_df |> select(name, score)
+
+# mutate: add/modify columns
+p16_df |> mutate(passed = score >= 85)
+
+# arrange: sort rows
+p16_df |> arrange(desc(score))
+
+# summarise: reduce to one row
+p16_df |> summarise(mean_score = mean(score), n = n())
+```
+
+## 16.2 filter
+
+```{r}
+# --- Self-contained: filter ---
+set.seed(1602)
+p16_df <- tibble(id = 1:6, score = c(90, 85, 88, 92, 79, 95),
+                 group = c("X", "X", "Y", "Y", "X", "Y"))
+
+p16_df |> filter(score > 85)
+p16_df |> filter(score > 85 & group == "X")
+p16_df |> filter(score > 85 | group == "X")
+p16_df |> filter(group %in% c("X", "Y"))
+p16_df |> filter(!is.na(score))
+```
+
+## 16.3 select
+
+```{r}
+# --- Self-contained: select ---
+set.seed(1603)
+p16_df <- tibble(id = 1:3, name = c("A","B","C"),
+                 score = c(90,85,88), group = c("X","X","Y"))
+
+p16_df |> select(name, score)
+p16_df |> select(-id)                    # drop
+p16_df |> select(starts_with("s"))
+p16_df |> select(where(is.numeric))
+p16_df |> select(name:score)             # range
+p16_df |> relocate(score, .before = name)
+```
+
+## 16.4 mutate
+
+```{r}
+# --- Self-contained: mutate ---
+set.seed(1604)
+p16_df <- tibble(x = c(1, 2, 3), y = c(4, 5, 6))
+
+p16_df |> mutate(z = x + y)
+p16_df |> mutate(z = x + y, w = z * 2)      # uses z just created
+p16_df |> mutate(x2 = x^2, x_cat = if_else(x > 1, "big", "small"))
+p16_df |> transmute(z = x + y)              # keep only new cols
+```
+
+## 16.5 arrange
+
+```{r}
+# --- Self-contained: arrange ---
+set.seed(1605)
+p16_df <- tibble(name = c("A","B","C","D"), score = c(90,85,88,92),
+                 group = c("X","X","Y","Y"))
+
+p16_df |> arrange(score)
+p16_df |> arrange(desc(score))
+p16_df |> arrange(group, desc(score))
+```
+
+## 16.6 summarise + group_by
+
+```{r}
+# --- Self-contained: group_by + summarise ---
+set.seed(1606)
+p16_df <- tibble(group = c("X","X","Y","Y","X","Y"),
+                 score = c(90,85,88,92,79,95))
+
+p16_df |>
+  group_by(group) |>
+  summarise(mean_score = mean(score), n = n(), .groups = "drop")
+
+# Multiple summaries
+p16_df |>
+  group_by(group) |>
+  summarise(
+    mean = mean(score),
+    sd   = sd(score),
+    min  = min(score),
+    max  = max(score),
+    n    = n(),
+    .groups = "drop"
+  )
+```
+
+## 16.7 count and tally
+
+```{r}
+# --- Self-contained: count ---
+set.seed(1607)
+p16_df <- tibble(group = c("X","X","Y","Y","X","Y"))
+
+p16_df |> count(group)
+p16_df |> count(group, sort = TRUE)
+```
+
+## 16.8 slice and distinct
+
+```{r}
+# --- Self-contained: slice and distinct ---
+set.seed(1608)
+p16_df <- tibble(x = c(1, 2, 2, 3, 3, 3))
+
+p16_df |> distinct()
+p16_df |> distinct(x)
+p16_df |> slice(1:2)
+p16_df |> slice_head(n = 2)
+p16_df |> slice_max(x, n = 2)
+p16_df |> slice_min(x, n = 2)
+p16_df |> slice_sample(n = 2)
+```
+
+## 16.9 pull and rename
+
+```{r}
+# --- Self-contained: pull and rename ---
+set.seed(1609)
+p16_df <- tibble(id = 1:3, score = c(90, 85, 88))
+
+p16_df |> pull(score)              # extract a column as vector
+p16_df |> rename(points = score)   # rename columns
+```
+
+## 16.10 across (apply to many columns)
+
+```{r}
+# --- Self-contained: across ---
+set.seed(1610)
+p16_df <- tibble(a = rnorm(10), b = rnorm(10), g = rep(c("X","Y"), 5))
+
+p16_df |>
+  group_by(g) |>
+  summarise(across(where(is.numeric), mean), .groups = "drop")
+
+p16_df |> mutate(across(where(is.numeric), ~ .x * 2))
+```
+
+## 16.11 Summary of dplyr verbs
+
+| Verb | Purpose |
+|---|---|
+| `filter()` | keep rows matching condition |
+| `select()` | keep columns |
+| `mutate()` | add / modify columns |
+| `arrange()` | sort rows |
+| `summarise()` | reduce to summary rows |
+| `group_by()` | group for summary |
+| `count()` | count rows by group |
+| `distinct()` | unique rows |
+| `slice()` | pick rows by position |
+| `rename()` | rename columns |
+| `relocate()` | move columns |
+| `pull()` | extract a column as vector |
+| `across()` | apply function to many columns |
+
+---
+
+# Part 17 — Reshaping with tidyr
+
+## 17.1 pivot_longer (wide → long)
+
+```{r}
+# --- Self-contained: pivot_longer ---
+set.seed(1701)
+p17_wide <- tibble(
+  id  = 1:3,
+  q1  = c(10, 11, 12),
+  q2  = c(20, 21, 22),
+  q3  = c(30, 31, 32)
+)
+p17_wide
+
+p17_long <- p17_wide |>
+  pivot_longer(cols = starts_with("q"),
+               names_to = "quarter",
+               values_to = "value")
+p17_long
+```
+
+## 17.2 pivot_wider (long → wide)
+
+```{r}
+# --- Self-contained: pivot_wider ---
+p17_long <- tibble(
+  id      = rep(1:3, each = 3),
+  quarter = rep(c("q1", "q2", "q3"), 3),
+  value   = c(10, 20, 30, 11, 21, 31, 12, 22, 32)
+)
+p17_long
+
+p17_wide <- p17_long |>
+  pivot_wider(names_from = quarter, values_from = value)
+p17_wide
+```
+
+## 17.3 separate and unite
+
+```{r}
+# --- Self-contained: separate and unite ---
+p17_df <- tibble(full = c("A-1", "B-2", "C-3"))
+
+p17_df |> separate(full, into = c("letter", "number"), sep = "-")
+
+p17_df2 <- tibble(letter = c("A","B"), number = c(1, 2))
+p17_df2 |> unite("full", letter, number, sep = "-")
+```
+
+## 17.4 Complete and fill
+
+```{r}
+# --- Self-contained: complete ---
+p17_df <- tibble(
+  year = c(2020, 2021, 2023),
+  val  = c(1, 2, 4)
+)
+p17_df |> tidyr::complete(year = 2020:2023)
+
+# Fill missing values from previous row
+p17_df2 <- tibble(x = c(1, NA, NA, 4, NA))
+p17_df2 |> fill(x, .direction = "down")
+```
+
+---
+
+# Part 18 — Joins
+
+## 18.1 The four main joins
+
+```{r}
+# --- Self-contained: joins ---
+p18_a <- tibble(id = c(1, 2, 3), x = c("a","b","c"))
+p18_b <- tibble(id = c(2, 3, 4), y = c("B","C","D"))
+
+# Inner: only matching rows
+p18_a |> inner_join(p18_b, by = "id")
+
+# Left: all rows in a
+p18_a |> left_join(p18_b, by = "id")
+
+# Right: all rows in b
+p18_a |> right_join(p18_b, by = "id")
+
+# Full: all rows in both
+p18_a |> full_join(p18_b, by = "id")
+```
+
+## 18.2 Anti and semi joins
+
+```{r}
+# --- Self-contained: anti and semi ---
+p18_a <- tibble(id = c(1, 2, 3), x = c("a","b","c"))
+p18_b <- tibble(id = c(2, 3, 4), y = c("B","C","D"))
+
+# Anti: rows in a NOT in b
+p18_a |> anti_join(p18_b, by = "id")
+
+# Semi: rows in a that ARE in b (only a's columns)
+p18_a |> semi_join(p18_b, by = "id")
+```
+
+## 18.3 Joining by different names
+
+```{r}
+# --- Self-contained: join with different key names ---
+p18_a <- tibble(id_a = c(1, 2, 3), x = c("a","b","c"))
+p18_b <- tibble(id_b = c(2, 3, 4), y = c("B","C","D"))
+
+p18_a |> inner_join(p18_b, by = c("id_a" = "id_b"))
+```
+
+## 18.4 Join summary
+
+| Join | Keeps |
+|---|---|
+| `inner_join()` | matches only |
+| `left_join()` | all rows from left |
+| `right_join()` | all rows from right |
+| `full_join()` | all rows from both |
+| `anti_join()` | rows in left NOT in right |
+| `semi_join()` | rows in left that match right |
+
+---
+
+# Part 19 — purrr (Functional Programming)
+
+## 19.1 map
+
+```{r}
+# --- Self-contained: map ---
+library(purrr)
+p19_list <- list(a = 1:3, b = 4:6, c = 7:9)
+
+map(p19_list, sum)          # list
+map_dbl(p19_list, sum)      # numeric vector
+map_chr(p19_list, ~ paste(.x, collapse = "-"))
+map_lgl(p19_list, ~ any(.x > 5))
+```
+
+## 19.2 map over data frame columns
+
+```{r}
+# --- Self-contained: map over columns ---
+set.seed(1902)
+p19_df <- tibble(a = rnorm(10), b = rnorm(10), c = rnorm(10))
+
+map_dbl(p19_df, mean)
+map_dbl(p19_df, sd)
+```
+
+## 19.3 map2 and pmap
+
+```{r}
+# --- Self-contained: map2 and pmap ---
+map2_dbl(1:3, 4:6, ~ .x + .y)
+
+pmap_dbl(list(1:3, 4:6, 7:9), ~ ..1 + ..2 + ..3)
+```
+
+## 19.4 walk (for side effects)
+
+```{r}
+# --- Self-contained: walk ---
+p19_list <- list(1, 2, 3)
+walk(p19_list, ~ cat("Value:", .x, "\n"))
+```
+
+---
+
+# Part 20 — Base R Plots
+
+## 20.1 Scatter plot
+
+```{r}
+# --- Self-contained: base scatter ---
+set.seed(2001)
+p20_x <- rnorm(50)
+p20_y <- 2 + 3 * p20_x + rnorm(50)
+
+plot(p20_x, p20_y,
+     main = "Scatter plot",
+     xlab = "X", ylab = "Y",
+     col = "steelblue", pch = 19)
+abline(lm(p20_y ~ p20_x), col = "red", lwd = 2)
+```
+
+## 20.2 Line plot
+
+```{r}
+# --- Self-contained: base line plot ---
+set.seed(2002)
+p20_y <- cumsum(rnorm(50))
+plot(p20_y, type = "l", main = "Line plot", col = "blue", lwd = 2)
+```
+
+## 20.3 Histogram
+
+```{r}
+# --- Self-contained: histogram ---
+set.seed(2003)
+p20_v <- rnorm(200)
+hist(p20_v, breaks = 20, col = "lightblue",
+     main = "Histogram", xlab = "Value")
+```
+
+## 20.4 Boxplot
+
+```{r}
+# --- Self-contained: boxplot ---
+set.seed(2004)
+p20_df <- data.frame(
+  group = rep(c("A","B","C"), each = 20),
+  value = c(rnorm(20), rnorm(20, 2), rnorm(20, 4))
+)
+boxplot(value ~ group, data = p20_df, col = c("red","green","blue"))
+```
+
+## 20.5 Bar plot
+
+```{r}
+# --- Self-contained: barplot ---
+p20_counts <- c(A = 10, B = 20, C = 15)
+barplot(p20_counts, col = "steelblue", main = "Counts")
+```
+
+## 20.6 Layout: multiple plots
+
+```{r}
+# --- Self-contained: multiple plots ---
+par(mfrow = c(1, 2))     # 1 row, 2 cols
+plot(1:10, main = "Left")
+plot(10:1, main = "Right")
+par(mfrow = c(1, 1))     # reset
+```
+
+## 20.7 Save a plot
+
+```{r eval=FALSE}
+png("plot.png", width = 800, height = 600)
+plot(1:10)
+dev.off()
+
+pdf("plot.pdf", width = 8, height = 6)
+plot(1:10)
+dev.off()
+```
+
+---
+
+# Part 21 — ggplot2
+
+## 21.1 Grammar of graphics
+
+Every ggplot has:
+
+1. **Data:** `ggplot(data = df)`
+2. **Aesthetics:** `aes(x = x, y = y, color = group)`
+3. **Geometries:** `+ geom_point()`, `+ geom_line()`, etc.
+4. **Facets:** `+ facet_wrap(~ group)`
+5. **Scales:** `+ scale_color_manual(...)`
+6. **Theme:** `+ theme_minimal()`
+
+## 21.2 Scatter plot
+
+```{r}
+# --- Self-contained: ggplot scatter ---
+set.seed(2101)
+p21_df <- tibble(x = rnorm(50), y = 2 + 3 * x + rnorm(50),
+                 group = sample(c("A","B"), 50, replace = TRUE))
+
+ggplot(p21_df, aes(x = x, y = y, color = group)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(title = "Scatter", x = "X", y = "Y") +
+  theme_minimal()
+```
+
+## 21.3 Line plot
+
+```{r}
+# --- Self-contained: ggplot line ---
+set.seed(2102)
+p21_df <- tibble(t = 1:50, y = cumsum(rnorm(50)))
+
+ggplot(p21_df, aes(t, y)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  labs(title = "Line", x = "Time", y = "Value") +
+  theme_minimal()
+```
+
+## 21.4 Histogram
+
+```{r}
+# --- Self-contained: ggplot histogram ---
+set.seed(2103)
+p21_df <- tibble(x = rnorm(200))
+
+ggplot(p21_df, aes(x)) +
+  geom_histogram(bins = 20, fill = "steelblue", color = "white") +
+  theme_minimal()
+```
+
+## 21.5 Boxplot
+
+```{r}
+# --- Self-contained: ggplot boxplot ---
+set.seed(2104)
+p21_df <- tibble(
+  group = rep(c("A","B","C"), each = 20),
+  value = c(rnorm(20), rnorm(20, 2), rnorm(20, 4))
+)
+
+ggplot(p21_df, aes(group, value, fill = group)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+## 21.6 Bar plot
+
+```{r}
+# --- Self-contained: ggplot bar ---
+p21_df <- tibble(group = c("A","B","C"), count = c(10, 20, 15))
+
+ggplot(p21_df, aes(group, count)) +
+  geom_col(fill = "steelblue") +
+  theme_minimal()
+```
+
+## 21.7 Facets
+
+```{r}
+# --- Self-contained: facets ---
+set.seed(2107)
+p21_df <- tibble(
+  x = rnorm(100),
+  y = rnorm(100),
+  group = rep(c("A","B"), 50)
+)
+
+ggplot(p21_df, aes(x, y)) +
+  geom_point() +
+  facet_wrap(~ group) +
+  theme_minimal()
+```
+
+## 21.8 Saving
+
+```{r eval=FALSE}
+ggsave("plot.png", width = 6, height = 4, dpi = 300)
+ggsave("plot.pdf", width = 6, height = 4)
+```
+
+## 21.9 Common geoms
+
+| Geom | Use for |
+|---|---|
+| `geom_point()` | scatter |
+| `geom_line()` | line |
+| `geom_bar()` / `geom_col()` | bar |
+| `geom_histogram()` | histogram |
+| `geom_boxplot()` | boxplot |
+| `geom_smooth(method = "lm")` | regression line |
+| `geom_text()` | labels |
+| `geom_hline(yintercept = ...)` | horizontal line |
+| `geom_vline(xintercept = ...)` | vertical line |
+| `geom_ribbon()` | confidence bands |
+
+## 21.10 Common theme tweaks
+
+```{r eval=FALSE}
++ theme_minimal()
++ theme_bw()
++ theme_classic()
++ labs(title = "...", x = "...", y = "...")
++ scale_color_manual(values = c("red", "blue"))
++ scale_x_continuous(limits = c(0, 10))
++ coord_flip()
+```
+
+---
+
+# Part 22 — Statistical Functions
+
+## 22.1 Descriptive
+
+```{r}
+# --- Self-contained: descriptive stats ---
+set.seed(2201)
+p22_x <- rnorm(100)
+
+mean(p22_x)
+median(p22_x)
+sd(p22_x)
+var(p22_x)
+range(p22_x)
+quantile(p22_x, c(0.025, 0.5, 0.975))
+IQR(p22_x)
+summary(p22_x)
+```
+
+## 22.2 Distributions
+
+For each distribution, R has 4 functions: `d` (density), `p` (CDF), `q` (quantile), `r` (random).
+
+| Distribution | Functions |
+|---|---|
+| Normal | `dnorm`, `pnorm`, `qnorm`, `rnorm` |
+| Binomial | `dbinom`, `pbinom`, `qbinom`, `rbinom` |
+| Poisson | `dpois`, `ppois`, `qpois`, `rpois` |
+| Uniform | `dunif`, `punif`, `qunif`, `runif` |
+| Exponential | `dexp`, `pexp`, `qexp`, `rexp` |
+| t | `dt`, `pt`, `qt`, `rt` |
+| Chi-square | `dchisq`, `pchisq`, `qchisq`, `rchisq` |
+| F | `df`, `pf`, `qf`, `rf` |
+
+```{r}
+# --- Self-contained: distribution functions ---
+# Density at x = 0 for N(0, 1)
+dnorm(0)
+
+# CDF at x = 1.96
+pnorm(1.96)
+
+# 97.5% quantile of N(0, 1)
+qnorm(0.975)
+
+# 5 random draws from N(0, 1)
+set.seed(2202)
+rnorm(5)
+```
+
+## 22.3 Hypothesis tests
+
+```{r}
+# --- Self-contained: hypothesis tests ---
+set.seed(2203)
+p22_x <- rnorm(30)
+
+# One-sample t-test
+t.test(p22_x, mu = 0)
+
+# Two-sample t-test
+p22_a <- rnorm(30, mean = 1)
+p22_b <- rnorm(30, mean = 0)
+t.test(p22_a, p22_b)
+
+# Paired t-test
+t.test(p22_a, p22_b, paired = TRUE)
+
+# Correlation test
+cor.test(p22_x, rnorm(30))
+
+# Chi-square test
+chisq.test(matrix(c(10, 20, 30, 40), nrow = 2))
+```
+
+## 22.4 Regression
+
+```{r}
+# --- Self-contained: regression ---
+set.seed(2204)
+p22_df <- tibble(x = rnorm(50), y = 2 + 3 * x + rnorm(50))
+
+p22_fit <- lm(y ~ x, data = p22_df)
+summary(p22_fit)
+coef(p22_fit)
+confint(p22_fit)
+predict(p22_fit, newdata = data.frame(x = 1))
+```
+
+## 22.5 Correlation
+
+```{r}
+# --- Self-contained: correlation ---
+set.seed(2205)
+p22_df <- tibble(x = rnorm(50), y = rnorm(50))
+
+cor(p22_df$x, p22_df$y)                # Pearson
+cor(p22_df$x, p22_df$y, method = "spearman")
+cor(p22_df$x, p22_df$y, method = "kendall")
+cor(p22_df)                             # correlation matrix
+```
+
+## 22.6 Hypothesis test decision table
+
+| Question | Function |
+|---|---|
+| Compare one mean to a value | `t.test(x, mu = 0)` |
+| Compare two independent means | `t.test(x, y)` |
+| Compare paired means | `t.test(x, y, paired = TRUE)` |
+| Compare >2 means | `aov(y ~ g)` or `anova(lm(y ~ g))` |
+| Test normality | `shapiro.test(x)` |
+| Test variance equality | `var.test(x, y)` |
+| Test a proportion | `prop.test(x, n, p)` |
+| Test association (categorical) | `chisq.test(table)` |
+| Correlation | `cor.test(x, y)` |
+
+---
+
+# Part 23 — Random Numbers and Sampling
+
+## 23.1 Setting the seed
+
+```{r}
+# --- Self-contained: set.seed ---
+set.seed(42)
+rnorm(3)
+
+set.seed(42)
+rnorm(3)   # same values
+```
+
+**Rule:** Always `set.seed()` before simulation or sampling for reproducibility.
+
+## 23.2 Common generators
+
+```{r}
+# --- Self-contained: generators ---
+set.seed(2302)
+rnorm(5)            # N(0, 1)
+rnorm(5, mean = 10, sd = 2)
+runif(5)            # U(0, 1)
+runif(5, min = 0, max = 100)
+rbinom(5, size = 10, prob = 0.3)
+rpois(5, lambda = 3)
+rexp(5, rate = 1)
+rt(5, df = 5)
+```
+
+## 23.3 Sampling
+
+```{r}
+# --- Self-contained: sampling ---
+set.seed(2303)
+p23_v <- 1:10
+
+sample(p23_v, size = 3)                 # without replacement
+sample(p23_v, size = 3, replace = TRUE) # with replacement
+sample(p23_v)                            # permutation
+sample(c("H", "T"), size = 10, replace = TRUE, prob = c(0.5, 0.5))
+```
+
+## 23.4 Split into train/test
+
+```{r}
+# --- Self-contained: train/test split ---
+set.seed(2304)
+p23_df <- tibble(x = rnorm(100), y = rnorm(100))
+
+p23_idx  <- sample(1:nrow(p23_df), size = 0.8 * nrow(p23_df))
+p23_train <- p23_df[p23_idx, ]
+p23_test  <- p23_df[-p23_idx, ]
+
+nrow(p23_train); nrow(p23_test)
+```
+
+---
+
+# Part 24 — Vectorization vs Loops
+
+## 24.1 Why vectorize
+
+R is optimized for vector operations. Loops are slow.
+
+```{r}
+# --- Self-contained: timing ---
+set.seed(2401)
+p24_v <- rnorm(1e6)
+
+# Slow: loop
+system.time({
+  p24_out <- numeric(length(p24_v))
+  for (i in seq_along(p24_v)) p24_out[i] <- p24_v[i]^2
+})
+
+# Fast: vectorized
+system.time({
+  p24_out2 <- p24_v^2
+})
+```
+
+## 24.2 Vectorized operations
+
+```{r}
+# --- Self-contained: vectorized operations ---
+p24_a <- c(1, 2, 3)
+p24_b <- c(10, 20, 30)
+
+p24_a + p24_b           # element-wise
+p24_a * p24_b
+p24_a / p24_b
+p24_a ^ 2
+sqrt(p24_a)
+log(p24_a)
+p24_a > 1.5
+```
+
+## 24.3 Recycling
+
+R recycles shorter vectors:
+
+```{r}
+# --- Self-contained: recycling ---
+c(1, 2, 3) + c(10, 20)   # warning: longer object length not multiple
+c(1, 2, 3, 4) + c(10, 20)  # 11 22 13 24
+```
+
+## 24.4 When to use loops
+
+Loops are fine when:
+- You need to update values based on previous iterations (e.g., recursive simulation).
+- The computation is inherently sequential.
+- You use `lapply` / `purrr::map` instead.
+
+---
+
+# Part 25 — Debugging
+
+## 25.1 Errors vs warnings vs messages
+
+- **Error:** code stops. E.g., `log("a")`.
+- **Warning:** code runs but something is off. E.g., `as.numeric("abc")`.
+- **Message:** informational. E.g., package loading.
+
+```{r eval=FALSE}
+log("a")            # Error
+as.numeric("abc")   # Warning: NAs introduced by coercion
+```
+
+## 25.2 Reading error messages
+
+Example: `Error in x[i] : subscript out of bounds`.
+
+- Function: `x[i]`
+- Problem: `i` is larger than `length(x)` or negative invalid.
+
+**Check:**
+```{r}
+# --- Self-contained: check indices ---
+p25_x <- 1:5
+length(p25_x)
+p25_x[10]   # NA
+# p25_x[[10]] # Error
+```
+
+## 25.3 Debugging tools
+
+```{r eval=FALSE}
+# Print statements
+print(x); cat("x =", x, "\n"); str(x); class(x); dim(x)
+
+# Traceback after error
+traceback()
+
+# Debug a function step-by-step
+debug(lm)
+lm(y ~ x, data = df)
+undebug(lm)
+
+# Browser inside a function
+# Add browser() where you want to pause
+
+# try / tryCatch
+try(log("a"))
+result <- tryCatch(log("a"), error = function(e) NA)
+```
+
+## 25.4 Common checks
+
+```{r}
+# --- Self-contained: inspect ---
+p25_df <- tibble(x = c(1, 2, NA), y = c("a", "b", "c"))
+
+str(p25_df)
+class(p25_df)
+dim(p25_df)
+names(p25_df)
+head(p25_df)
+summary(p25_df)
+sapply(p25_df, class)
+anyNA(p25_df)
+```
+
+## 25.5 `stopifnot`
+
+```{r eval=FALSE}
+my_fun <- function(x) {
+  stopifnot(is.numeric(x), length(x) > 0)
+  mean(x)
+}
+my_fun(c(1, 2, 3))   # works
+my_fun("a")          # error
+```
+
+---
+
+# Part 26 — Common Errors and Fixes
+
+| Error | Cause | Fix |
+|---|---|---|
+| `object 'x' not found` | Variable not defined or misspelled | Check spelling, define `x` first |
+| `could not find function "f"` | Package not loaded or typo | `library(pkg)` or fix spelling |
+| `unexpected symbol` | Syntax error (missing `)`, `,`) | Check parentheses and commas |
+| `subscript out of bounds` | Index beyond vector length | Check `length()`, use `[` not `[[` for out-of-range |
+| `non-numeric argument to binary operator` | Wrong type | `as.numeric()` or check `class()` |
+| `NAs introduced by coercion` | Converting non-numeric string | Check the string, handle `NA` |
+| `replacement has X rows, data has Y` | Length mismatch in assignment | Match lengths |
+| `object of type 'closure' is not subsettable` | You called a function like a variable | Don't name variables the same as functions |
+| `cannot open file` | Wrong path | Use absolute path or `setwd()` |
+| `there is no package called 'X'` | Not installed | `install.packages("X")` |
+| `contrasts can be applied only to factors with 2 or more levels` | Factor with 1 level | Check `unique(df$var)`, use `factor()` |
+| `model frame and formula mismatch` | Removed rows in one variable | Use `na.omit()` or `drop_na()` first |
+| `singular fit` / `system is computationally singular` | Perfect collinearity | Remove one predictor |
+| `longer object length is not a multiple of shorter object length` | Recycling | Match lengths or use `rep()` |
+| `$ operator is invalid for atomic vectors` | Using `$` on a vector | Use `[` or `[[` |
+
+## 26.1 Quick fixes
+
+```{r}
+# --- Self-contained: fix patterns ---
+# Check types
+p26_x <- c(1, 2, 3)
+class(p26_x)
+
+# Rename variable to avoid function clash
+p26_mean <- c(1, 2, 3)   # good
+# mean <- c(1, 2, 3)     # bad: overwrites function
+
+# Use [[ not [ for lists when extracting elements
+p26_l <- list(a = 1:3)
+p26_l[["a"]]     # correct: returns vector
+# p26_l[["b"]]   # Error: subscript out of bounds
+```
+
+---
+
+# Part 27 — RStudio Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Enter` | Run current line / selection |
+| `Ctrl+Shift+Enter` | Run entire script |
+| `Ctrl+Alt+R` | Run entire script (alt) |
+| `Ctrl+Shift+K` | Knit (RMarkdown) |
+| `Ctrl+1` | Focus source editor |
+| `Ctrl+2` | Focus console |
+| `Alt+-` | Insert `<-` |
+| `Ctrl+Shift+M` | Insert `%>%` |
+| `Ctrl+Shift+A` | Reformat code |
+| `Ctrl+D` | Delete current line |
+| `Ctrl+Shift+D` | Duplicate line |
+| `Ctrl+L` | Clear console |
+| `Ctrl+Shift+C` | Comment/uncomment |
+| `Ctrl+F` | Find |
+| `Ctrl+Shift+F` | Find in files |
+| `F1` | Help for function at cursor |
+| `F2` | Go to definition |
+| `Tab` | Autocomplete |
+| `Ctrl+Up` | Command history |
+| `Alt+Shift+K` | Keyboard shortcut help |
+
+---
+
+# Part 28 — Quick Reference Table
+
+| Task | Code |
+|---|---|
+| Assign | `x <- 5` |
+| Sequence | `1:10`, `seq(0, 1, by = 0.1)` |
+| Repeat | `rep(1:3, times = 2)` |
+| Vector | `c(1, 2, 3)` |
+| List | `list(a = 1, b = "x")` |
+| Matrix | `matrix(1:9, nrow = 3)` |
+| Data frame | `data.frame(x = 1:3, y = 4:6)` |
+| Tibble | `tibble(x = 1:3, y = 4:6)` |
+| Access column | `df$x` or `df[["x"]]` |
+| Access element | `df[1, 2]` or `v[3]` |
+| Filter | `df |> filter(x > 5)` |
+| Select cols | `df |> select(a, b)` |
+| Add column | `df |> mutate(z = x + y)` |
+| Sort | `df |> arrange(x)` |
+| Group + summarize | `df |> group_by(g) |> summarise(m = mean(x))` |
+| Join | `a |> inner_join(b, by = "id")` |
+| Reshape long | `pivot_longer(cols, names_to, values_to)` |
+| Reshape wide | `pivot_wider(names_from, values_from)` |
+| Mean | `mean(x, na.rm = TRUE)` |
+| Median | `median(x)` |
+| SD | `sd(x)` |
+| Quantiles | `quantile(x, c(.25, .75))` |
+| T-test | `t.test(x, y)` |
+| Correlation | `cor(x, y)` / `cor.test(x, y)` |
+| Regression | `lm(y ~ x, data = df)` |
+| Predict | `predict(fit, newdata)` |
+| Set seed | `set.seed(42)` |
+| Sample | `sample(x, size = n, replace = FALSE)` |
+| Map | `map(x, f)` / `map_dbl(x, f)` |
+| Scatter plot | `ggplot(df, aes(x, y)) + geom_point()` |
+| Save plot | `ggsave("plot.png")` |
+| Read CSV | `read_csv("file.csv")` |
+| Write CSV | `write_csv(df, "file.csv")` |
+
+---
+
+# Part 29 — Theory Q&A (What to Say)
+
+**Q: What's the difference between `<-` and `=`?**
+A: Both assign in most contexts, but `<-` is idiomatic and preferred. Use `=` only for function arguments (`mean(x, na.rm = TRUE)`).
+
+**Q: What's the difference between `[`, `[[`, and `$`?**
+A: `[` returns a **subset** (vector, list, data frame). `[[` returns the **contents** of a single element (unwrapped). `$` is shorthand for `[[` on a named element.
+
+**Q: What's the difference between a vector and a list?**
+A: A vector holds elements of the **same type**. A list can hold elements of **different types** (including other lists).
+
+**Q: What's the difference between `NA` and `NULL`?**
+A: `NA` is a missing value placeholder that occupies a position. `NULL` means "no value at all" — assigning to a vector element with `NULL` removes it.
+
+**Q: What's the difference between a factor and a character?**
+A: Character is just text. A factor stores categorical data with predefined **levels**, which matters for regression (`lm` treats factors as dummies) and plotting.
+
+**Q: What's the difference between `&` and `&&`?**
+A: `&` is vectorized (returns a vector). `&&` is scalar and short-circuits (returns one value, stops at first FALSE).
+
+**Q: Why use the pipe `|>`?**
+A: It makes nested function calls readable: instead of `f(g(h(x)))`, write `x |> h() |> g() |> f()`.
+
+**Q: What is vectorization?**
+A: Performing an operation on an entire vector at once, instead of element-by-element. It's faster and cleaner than loops in R.
+
+**Q: What is the difference between `apply`, `lapply`, `sapply`, `tapply`, `mapply`?**
+A: `apply` works on matrix margins. `lapply` returns a list. `sapply` simplifies to a vector. `tapply` applies by group. `mapply` handles multiple inputs.
+
+**Q: How do you handle missing values?**
+A: Detect with `is.na()`, remove with `na.omit()` or `drop_na()`, exclude in functions with `na.rm = TRUE`, or fill with mean/median/`zoo::na.locf()`.
+
+**Q: What's the difference between `data.frame` and `tibble`?**
+A: Tibbles print nicely, don't auto-convert strings to factors, don't use row names, and allow list-columns.
+
+**Q: What's the difference between `read.csv` and `read_csv`?**
+A: `read.csv` is base R, slower, uses `stringsAsFactors` (defaults changed in R 4.0). `read_csv` is tidyverse, faster, returns a tibble, doesn't convert strings.
+
+---
+
+# Part 30 — The Single Most Important Idea
+
+R is:
+
+1. **Vectorized** — operations apply to whole vectors.
+2. **Functional** — functions take inputs, return outputs.
+3. **Pipe-friendly** — chains read top-to-bottom.
+4. **Type-aware** — every object has a class (`numeric`, `character`, `factor`, `tbl`, ...).
+5. **Subsettable** — `[`, `[[`, `$` extract pieces.
+
+If you know these five things and can look up functions, you can do anything in R.
+
+The pipeline for any R task:
+
+1. **Load** the data (`read_csv`, `readRDS`).
+2. **Inspect** (`str`, `glimpse`, `summary`, `head`).
+3. **Clean** (`filter`, `mutate`, `drop_na`).
+4. **Transform** (`group_by`, `summarise`, `pivot_*`).
+5. **Analyze** (`lm`, `t.test`, `glm`).
+6. **Visualize** (`ggplot` or base `plot`).
+7. **Report** (`kable`, `glue`, `sprintf`).
+
+If you can do these seven steps, you can complete any R task.
+
+---
+
+*End of cheat sheet. Good luck in the competition.*
+```
+
+---
+
+## What's inside and why
+
+| Part | Covers |
+|---|---|
+| 0 | Five survival rules |
+| 1–2 | Packages, help |
+| 3–4 | Variables, assignment, data types (numeric, integer, character, logical, complex) |
+| 5 | Vectors, matrices, arrays, lists, data frames, tibbles |
+| 6 | Indexing with `[`, `[[`, `$`, logical/negative/name indexing |
+| 7 | Arithmetic, comparison, logical, membership, pipes, `Inf`/`NaN`/`NA`/`NULL` |
+| 8 | Pipes in depth + placeholder + anonymous functions |
+| 9 | Functions: define, default args, `...`, anonymous, scope |
+| 10 | if/else, for, while, `break`/`next`, apply family |
+| 11 | Strings: base, `grep`/`gsub`, stringr, `sprintf`, glue |
+| 12 | Factors: levels, relevel, tables, forcats |
+| 13 | Dates: `as.Date`, components, arithmetic, lubridate |
+| 14 | Missing values: detect, remove, fill, `NA` vs `NULL` vs `NaN` |
+| 15 | Read/write CSV, Excel, RDS, RData |
+| 16 | Full dplyr toolkit: filter, select, mutate, arrange, group_by, summarise, across, slice, pull, relocate |
+| 17 | tidyr: pivot_longer, pivot_wider, separate, unite, complete, fill |
+| 18 | Joins: inner, left, right, full, anti, semi |
+| 19 | purrr: map, map_dbl, map2, pmap, walk |
+| 20 | Base plots: plot, hist, boxplot, barplot, layout, save |
+| 21 | ggplot2: scatter, line, hist, boxplot, bar, facets, saving |
+| 22 | Statistical functions: descriptive, distributions, tests, regression, correlation |
+| 23 | Random numbers, sampling, seed, train/test split |
+| 24 | Vectorization vs loops + recycling |
+| 25 | Debugging tools: traceback, debug, tryCatch, stopifnot |
+| 26 | 15 common errors with fixes |
+| 27 | RStudio shortcuts |
+| 28 | Quick reference table |
+| 29 | Theory Q&A |
+| 30 | Single most important idea |
+

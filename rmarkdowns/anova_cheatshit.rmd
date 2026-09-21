@@ -1,0 +1,1980 @@
+---
+title: "The Ultimate ANOVA & Experimental Design Cheat Sheet"
+author: "Parsa"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(broom)
+library(car)
+library(emmeans)
+library(lmtest)
+library(lme4)
+library(lmerTest)
+library(knitr)
+library(effectsize)
+library(rstatix)
+library(afex)
+library(pwr)
+library(agricolae)
+library(FrF2)
+```
+
+# How to Use This Cheat Sheet
+
+| Topic | Section |
+|---|---|
+| The 30-second strategy | 0 |
+| Foundations of experimental design | 1 |
+| Key terminology | 2 |
+| Randomization, replication, blocking | 3 |
+| CRD — Completely Randomized Design | 4 |
+| RCBD — Randomized Complete Block Design | 5 |
+| Latin Square Design | 6 |
+| BIBD — Balanced Incomplete Block | 7 |
+| Full Factorial Designs | 8 |
+| Fractional Factorial Designs | 9 |
+| Split-Plot Designs | 10 |
+| Nested vs Crossed Designs | 11 |
+| Crossover Designs | 12 |
+| Repeated Measures ANOVA | 13 |
+| Mixed Designs (between + within) | 14 |
+| Fixed vs Random Effects | 15 |
+| Expected Mean Squares (EMS) | 16 |
+| Power and Sample Size | 17 |
+| Blocking Efficiency | 18 |
+| Diagnostics | 19 |
+| Post-hoc Comparisons | 20 |
+| Non-parametric Alternatives | 21 |
+| Theory Q&A | 22 |
+| Exam Scenarios | 23 |
+| Quick Reference | 24 |
+| Common Mistakes | 25 |
+
+**Golden rule of this document:** every chunk is self-contained. Each one starts with `set.seed()`, builds its own data, and uses section-prefixed names.
+
+---
+
+# Part 0 — The 30-Second Exam Strategy
+
+For **any** experimental design / ANOVA question, run this pipeline:
+
+1. **Identify the design.** How many factors? Between or within? Blocks? Nested?
+2. **Identify the model.** What are the fixed effects, random effects, and error terms?
+3. **Fit** with the right function:
+   - `aov()` for balanced fixed-effects
+   - `lm()` for ANCOVA / unbalanced Type III
+   - `aov(y ~ A + Error(block/A))` for split-plot
+   - `lmer()` for mixed / unbalanced / missing
+4. **Check assumptions:** Shapiro-Wilk, Levene, QQ plot.
+5. **Read the ANOVA table.** Find F, df, p for the effect(s) of interest.
+6. **If significant, post-hoc:** Tukey, Bonferroni, `emmeans`.
+7. **Report effect size** and interpret in words.
+
+If you can do these seven steps, you can answer any design question.
+
+---
+
+# Part 1 — Foundations of Experimental Design
+
+## 1.1 What is an experiment?
+
+An **experiment** is a controlled study in which the researcher **manipulates** one or more factors (treatments) and observes the effect on one or more responses.
+
+**Key elements:**
+- **Treatment:** a specific combination of factor levels applied to an experimental unit.
+- **Experimental unit:** the smallest unit to which a treatment is applied independently.
+- **Observational unit:** the unit on which the response is measured (may be smaller than the experimental unit).
+- **Response:** the measured outcome.
+
+**Why experiments beat observational studies:** Randomization + control allows causal inference.
+
+## 1.2 The three pillars of experimental design (Fisher)
+
+1. **Randomization:** Assign treatments to units randomly to eliminate systematic bias.
+2. **Replication:** Apply each treatment to multiple units to estimate variability.
+3. **Blocking:** Group similar units together to reduce nuisance variation.
+
+**Mnemonic:** **R**andomize, **R**eplicate, **B**lock.
+
+## 1.3 Randomization — why?
+
+Without randomization:
+- Confounding: the treatment effect is mixed with an unmeasured variable.
+- Bias: the researcher might unconsciously assign treatments non-randomly.
+- Invalid p-values: the F-test assumes observations are independent.
+
+**How to randomize in R:**
+```{r}
+# --- Self-contained: random assignment ---
+set.seed(101)
+p1_units <- 1:12
+p1_treatments <- rep(c("A", "B", "C"), each = 4)
+p1_design <- tibble(
+  unit      = p1_units,
+  treatment = sample(p1_treatments)
+)
+p1_design
+```
+
+## 1.4 Replication — why?
+
+- **Estimates error variance.** Without replication, you cannot estimate the within-treatment variability.
+- **Increases power.** More replication → smaller SE → easier to detect real effects.
+- **Reduces chance of misleading results.** A single unit can be atypical.
+
+**Note:** Replication ≠ repeated measures. Repeating the measurement on the same unit does not give independent replication.
+
+## 1.5 Blocking — why?
+
+- **Reduces nuisance variability.** If a nuisance factor (e.g., batch, field, time of day) affects the response, block on it.
+- **Increases precision.** By removing block-to-block variation from the error term, the residual SS shrinks, and the F-test for treatment becomes more powerful.
+
+**Rule:** Block on the factor you can control, randomize what you cannot.
+
+## 1.6 Confounding and aliasing
+
+- **Confounding:** the effect of one factor is mixed with another (or a block). If they are always applied together, you cannot separate their effects.
+- **Aliasing:** in fractional factorial designs, higher-order interactions are deliberately confounded with lower-order effects to reduce the number of runs.
+
+**Why it matters:** Confounding destroys causal inference. Aliasing trades information for efficiency.
+
+## 1.7 Control vs treatment
+
+- **Control group:** no treatment / baseline (or the current standard).
+- **Treatment groups:** different levels of the experimental factor.
+- **Placebo control:** for clinical trials, a treatment that has no active ingredient.
+
+## 1.8 Fixed vs random effects (preview)
+
+| Type | Meaning | Examples |
+|---|---|---|
+| **Fixed** | Levels chosen specifically by the researcher; inference only to those levels | Treatment, dose, sex |
+| **Random** | Levels are a random sample from a larger population | Subject, batch, site, block |
+
+**Implication:** Fixed effects affect the mean; random effects affect the variance. The choice changes the EMS and the F-test denominator.
+
+## 1.9 Observational vs experimental
+
+| Feature | Experiment | Observational |
+|---|---|---|
+| Treatment assignment | Random | Not controlled |
+| Causal inference | Yes | No |
+| Confounding | Controlled by design | Possible |
+| Typical analysis | ANOVA | Regression / propensity score |
+
+## 1.10 The Experimental Design Process
+
+1. **State the objective** — what question are you answering?
+2. **Choose factors and levels** — what treatments?
+3. **Choose the design** — CRD, RCBD, factorial, split-plot, ...
+4. **Determine sample size** — power analysis.
+5. **Randomize** — assign treatments to units.
+6. **Run the experiment** — collect data.
+7. **Analyze** — ANOVA + post-hoc.
+8. **Interpret** — effects, sizes, practical significance.
+
+---
+
+# Part 2 — Key Terminology
+
+## 2.1 Design vocabulary
+
+| Term | Meaning |
+|---|---|
+| **Factor** | An independent variable manipulated by the researcher |
+| **Level** | A specific value of a factor |
+| **Treatment** | A combination of factor levels |
+| **Experimental unit** | Unit to which a treatment is applied |
+| **Observational unit** | Unit on which the response is measured |
+| **Replication** | Independent application of a treatment |
+| **Block** | Group of similar experimental units |
+| **Balance** | Equal replication across treatments |
+| **Orthogonal** | Effects are independent |
+| **Confounded** | Effects cannot be separated |
+| **Nuisance factor** | Affects response but not of primary interest |
+
+## 2.2 Model vocabulary
+
+| Term | Meaning |
+|---|---|
+| **Fixed effect** | Level-specific effect; inference to those levels only |
+| **Random effect** | Drawn from a distribution; inference to the population |
+| **Mixed model** | Contains both fixed and random effects |
+| **Error term** | Residual variability not explained by the model |
+| **EMS** | Expected Mean Square — used to determine F-test denominators |
+| **Residual** | Observed − fitted |
+
+## 2.3 Design types at a glance
+
+| Design | Factors | Blocking | Typical use |
+|---|---|---|---|
+| **CRD** | 1+ between | None | Simple comparison |
+| **RCBD** | 1 between + 1 block | Yes | One nuisance factor |
+| **Latin Square** | 1 between + 2 blocks | Yes (2-way) | Two nuisance factors |
+| **Factorial** | 2+ between | Optional | Interaction questions |
+| **Fractional Factorial** | Many between | Yes (aliased) | Screening |
+| **Split-Plot** | Between + within | Yes | Hard-to-change factors |
+| **Nested** | Factor within factor | — | Hierarchical data |
+| **Crossover** | Within-subject treatments | Yes (subject) | Clinical trials |
+
+## 2.4 Notation
+
+- $y_{ij}$: response for unit $i$ in treatment $j$.
+- $\mu$: grand mean.
+- $\tau_j$: effect of treatment $j$.
+- $\beta_i$: effect of block $i$.
+- $(\tau\beta)_{ij}$: interaction between treatment $j$ and block $i$.
+- $\varepsilon_{ij}$: random error, $\sim N(0, \sigma^2)$.
+
+---
+
+# Part 3 — Randomization, Replication, Blocking
+
+## 3.1 Randomization in R
+
+**Completely random assignment (CRD):**
+```{r}
+# --- Self-contained: CRD randomization ---
+set.seed(301)
+p3_treat <- rep(c("A", "B", "C"), each = 4)
+p3_design <- tibble(
+  unit      = 1:12,
+  treatment = sample(p3_treat)
+)
+p3_design
+```
+
+**Randomized block design (RCBD):** randomize within each block.
+```{r}
+# --- Self-contained: RCBD randomization ---
+set.seed(302)
+p3_design <- expand.grid(block = 1:4, treatment = c("A", "B", "C")) %>%
+  group_by(block) %>%
+  mutate(treatment = sample(treatment)) %>%
+  ungroup() %>%
+  arrange(block, treatment)
+p3_design
+```
+
+## 3.2 Replication and pseudo-replication
+
+- **True replication:** independent units receiving the same treatment.
+- **Pseudo-replication:** treating subsamples as replicates when they are not independent (e.g., measuring the same plant twice).
+
+**Pseudo-replication inflates Type I error.** If you have subsamples, average them first or use a mixed model with a random effect for the unit.
+
+## 3.3 Blocking decisions
+
+**Block when:**
+- A nuisance factor is known and measurable.
+- That factor is likely to affect the response.
+- You can group units into homogeneous blocks.
+
+**Do not block when:**
+- The nuisance factor is negligible.
+- Blocking uses up df that could be used for treatments.
+
+**Blocking efficiency:** see Part 18.
+
+## 3.4 Randomization restrictions
+
+| Design | Restriction |
+|---|---|
+| CRD | None (full randomization) |
+| RCBD | Within-block randomization |
+| Latin Square | Randomize rows and columns, then treatments |
+| Split-plot | Randomize whole-plot factor, then split-plot factor within |
+
+## 3.5 Common randomization mistakes
+
+1. **Assigning treatments by convenience** (e.g., first row gets treatment A) — biases results.
+2. **Not randomizing block order** — confounds block with time.
+3. **Using the same randomization for repeated experiments** — different experiments need different seeds.
+4. **Forgetting to randomize measurement order** — measurement order can be a nuisance factor.
+5. **Blocking after seeing the data** — post-hoc blocking is weaker than pre-planned blocking.
+
+---
+
+# Part 4 — CRD: Completely Randomized Design
+
+## 4.1 What it is
+
+- One or more treatment factors.
+- No blocking.
+- Each experimental unit is randomly assigned to a treatment.
+- Analysis: one-way ANOVA.
+
+**Model:** $y_{ij} = \mu + \tau_j + \varepsilon_{ij}$
+
+## 4.2 Generate the design
+
+```{r}
+# --- Self-contained: CRD design and data ---
+set.seed(401)
+p4_design <- tibble(
+  unit      = 1:20,
+  treatment = factor(rep(c("A", "B", "C", "D"), each = 5),
+                     levels = c("A", "B", "C", "D")) %>%
+              sample()   # randomize assignment to units
+)
+p4_design$y <- 10 + c(A = 0, B = 2, C = 4, D = 6)[as.character(p4_design$treatment)] +
+               rnorm(20, 0, 1.5)
+
+p4_design
+```
+
+## 4.3 Fit and report
+
+```{r}
+# --- Self-contained: CRD one-way ANOVA ---
+set.seed(402)
+p4_df <- tibble(
+  treatment = factor(rep(c("A", "B", "C", "D"), each = 5),
+                     levels = c("A", "B", "C", "D")),
+  y = 10 + c(A = 0, B = 2, C = 4, D = 6)[rep(1:4, each = 5)] + rnorm(20, 0, 1.5)
+)
+p4_fit <- aov(y ~ treatment, data = p4_df)
+summary(p4_fit)
+```
+
+**Report template:** "A one-way ANOVA shows a significant effect of treatment, F(3, 16) = 24.8, p < 0.001."
+
+## 4.4 Post-hoc
+
+```{r}
+# --- Self-contained: CRD post-hoc ---
+set.seed(403)
+p4_df <- tibble(
+  treatment = factor(rep(c("A", "B", "C", "D"), each = 5)),
+  y = 10 + c(0, 2, 4, 6)[rep(1:4, each = 5)] + rnorm(20, 0, 1.5)
+)
+p4_fit <- aov(y ~ treatment, data = p4_df)
+
+p4_emm <- emmeans(p4_fit, ~ treatment)
+pairs(p4_emm, adjust = "tukey")
+```
+
+## 4.5 CRD summary
+
+| Property | Value |
+|---|---|
+| Randomization | Full |
+| Blocking | No |
+| Error df | $N - k$ |
+| F-test denominator | $MS_{\text{Error}}$ |
+| Key assumption | Independence of units |
+
+---
+
+# Part 5 — RCBD: Randomized Complete Block Design
+
+## 5.1 What it is
+
+- One treatment factor.
+- One blocking factor.
+- Each treatment appears exactly once per block.
+- Analysis: two-way ANOVA without interaction (usually).
+
+**Model:** $y_{ij} = \mu + \tau_j + \beta_i + \varepsilon_{ij}$
+
+- $\tau_j$: treatment effect.
+- $\beta_i$: block effect.
+- Assumption: **no treatment × block interaction** (additive model).
+
+## 5.2 Design and data
+
+```{r}
+# --- Self-contained: RCBD data ---
+set.seed(501)
+p5_df <- expand.grid(
+  block     = factor(1:6),
+  treatment = factor(c("A", "B", "C", "D"), levels = c("A", "B", "C", "D"))
+) %>%
+  mutate(y = 10 +
+             c(A = 0, B = 2, C = 4, D = 6)[as.character(treatment)] +
+             rep(c(-1, -0.5, 0, 0.5, 1, 1.5), each = 4) +  # block effect
+             rnorm(24, 0, 1))
+
+head(p5_df)
+```
+
+## 5.3 Fit and report
+
+```{r}
+# --- Self-contained: RCBD ANOVA ---
+set.seed(502)
+p5_df <- expand.grid(
+  block     = factor(1:6),
+  treatment = factor(c("A", "B", "C", "D"), levels = c("A", "B", "C", "D"))
+) %>%
+  mutate(y = 10 +
+             c(A = 0, B = 2, C = 4, D = 6)[as.character(treatment)] +
+             rep(c(-1, -0.5, 0, 0.5, 1, 1.5), each = 4) +
+             rnorm(24, 0, 1))
+
+p5_fit <- aov(y ~ treatment + block, data = p5_df)
+summary(p5_fit)
+```
+
+**Output:**
+
+```
+            Df Sum Sq Mean Sq F value   Pr(>F)
+treatment    3  ...
+block        5  ...
+Residuals   15  ...
+```
+
+**Report:** "RCBD ANOVA shows a significant treatment effect, F(3, 15) = ..., p = ..., after controlling for block effects."
+
+## 5.4 Testing for interaction
+
+If you suspect treatment effects vary by block, fit the interaction model:
+
+```{r}
+# --- Self-contained: RCBD with interaction test ---
+set.seed(503)
+p5_df <- expand.grid(
+  block     = factor(1:6),
+  treatment = factor(c("A", "B", "C", "D"))
+) %>%
+  mutate(y = 10 + c(A = 0, B = 2, C = 4, D = 6)[as.character(treatment)] +
+             rep(c(-1, -0.5, 0, 0.5, 1, 1.5), each = 4) +
+             rnorm(24, 0, 1))
+
+p5_add  <- aov(y ~ treatment + block, data = p5_df)
+p5_inter <- aov(y ~ treatment * block, data = p5_df)
+anova(p5_add, p5_inter)
+```
+
+- $p > 0.05$: additive model adequate.
+- $p < 0.05$: interaction present — report it or use Tukey's test for non-additivity.
+
+## 5.5 When to use RCBD
+
+- You have a known nuisance factor that is likely to affect the response.
+- You can create homogeneous blocks.
+- The block effect is not of primary interest.
+
+## 5.6 RCBD summary
+
+| Property | Value |
+|---|---|
+| Randomization | Within blocks |
+| Blocking | Yes (1 factor) |
+| Error df | $(b - 1)(k - 1)$ |
+| Model | Additive (no interaction assumed) |
+| Benefit | Reduces error variance; increases power |
+
+---
+
+# Part 6 — Latin Square Design
+
+## 6.1 What it is
+
+- One treatment factor.
+- Two blocking factors (rows and columns).
+- Each treatment appears exactly once in each row and each column.
+- Requires $k \times k$ layout (k treatments, k rows, k columns).
+- Analysis: three-way ANOVA without interactions.
+
+**Model:** $y_{ijk} = \mu + \alpha_i + \beta_j + \tau_k + \varepsilon_{ijk}$
+
+## 6.2 Generate and analyze
+
+```{r}
+# --- Self-contained: Latin Square (manual construction) ---
+set.seed(601)
+k <- 4
+
+# Step 1: cyclic Latin Square base (each symbol appears once per row/col)
+ls_base <- outer(1:k, 1:k, function(i, j) ((i + j - 2) %% k) + 1)
+
+# Step 2: randomize rows, columns, and treatment labels
+row_perm <- sample(1:k)
+col_perm <- sample(1:k)
+trt_map  <- sample(LETTERS[1:k])
+
+ls_rand <- ls_base[row_perm, col_perm]
+ls_rand[] <- trt_map[ls_rand]
+
+# Step 3: build long data frame from (row, col) grid
+p6_df <- tibble(
+  row = rep(1:k, each  = k),
+  col = rep(1:k, times = k)
+) %>%
+  mutate(
+    trt = factor(ls_rand[cbind(row, col)]),
+    row = factor(row),
+    col = factor(col)
+  )
+
+# Step 4: simulate response (row effect + col effect + trt effect + noise)
+p6_df <- p6_df %>%
+  mutate(
+    y = 10 +
+        c(A = 0, B = 2, C = 4, D = 6)[as.character(trt)] +
+        as.numeric(row) * 0.5 + as.numeric(col) * 0.3 +
+        rnorm(k^2, 0, 1)
+  )
+
+kable(p6_df)
+
+#Fit:
+
+
+# --- Self-contained: Latin Square analysis ---
+set.seed(602)
+k <- 4
+ls_base <- outer(1:k, 1:k, function(i, j) ((i + j - 2) %% k) + 1)
+row_perm <- sample(1:k); col_perm <- sample(1:k); trt_map <- sample(LETTERS[1:k])
+ls_rand <- ls_base[row_perm, col_perm]
+ls_rand[] <- trt_map[ls_rand]
+
+p6_df <- tibble(
+  row = rep(1:k, each = k),
+  col = rep(1:k, times = k)
+) %>%
+  mutate(
+    trt = factor(ls_rand[cbind(row, col)]),
+    row = factor(row),
+    col = factor(col)
+  ) %>%
+  mutate(
+    y = 10 +
+        c(A = 0, B = 2, C = 4, D = 6)[as.character(trt)] +
+        as.numeric(row) * 0.5 + as.numeric(col) * 0.3 +
+        rnorm(k^2, 0, 1)
+  )
+
+p6_fit <- aov(y ~ row + col + trt, data = p6_df)
+summary(p6_fit)
+
+```
+# Part 7 — BIBD: Balanced Incomplete Block Design
+
+## 7.1 What it is
+
+- Like RCBD, but each block contains only a **subset** of treatments.
+- Each treatment appears in $r$ blocks; each pair of treatments appears together in $\lambda$ blocks.
+- Used when you cannot fit all treatments in one block.
+
+**Parameters:**
+- $t$ = number of treatments.
+- $k$ = block size ($k < t$).
+- $r$ = number of replications per treatment.
+- $b$ = number of blocks.
+- $\lambda$ = number of blocks in which each pair appears.
+- Balance: $b \cdot k = t \cdot r$, and $\lambda(t-1) = r(k-1)$.
+
+## 7.2 Example
+
+```{r}
+# --- Self-contained: BIBD design (manual construction) ---
+# 7 treatments, block size 3, r = 3, b = 7, lambda = 1
+set.seed(701)
+p7_blocks <- list(
+  c(1, 2, 3),
+  c(1, 4, 5),
+  c(2, 4, 6),
+  c(3, 5, 6),
+  c(1, 6, 7),
+  c(2, 5, 7),
+  c(3, 4, 7)
+)
+
+p7_df <- tibble(
+  block = factor(rep(1:7, each = 3)),
+  trt   = factor(unlist(p7_blocks))
+) %>%
+  mutate(
+    y = 10 + as.numeric(trt) * 0.5 +
+        rep(rnorm(7, 0, 1), each = 3) + rnorm(21, 0, 1)
+  )
+
+head(p7_df)
+```
+
+## 7.3 Analysis
+
+BIBD requires a specific ANOVA that accounts for the incomplete block structure:
+
+```{r}
+# --- Self-contained: BIBD analysis ---
+set.seed(702)
+p7_blocks <- list(
+  c(1, 2, 3), c(1, 4, 5), c(2, 4, 6), c(3, 5, 6),
+  c(1, 6, 7), c(2, 5, 7), c(3, 4, 7)
+)
+p7_df <- tibble(
+  block = factor(rep(1:7, each = 3)),
+  trt   = factor(unlist(p7_blocks))
+) %>%
+  mutate(y = 10 + as.numeric(trt) * 0.5 +
+             rep(rnorm(7, 0, 1), each = 3) + rnorm(21, 0, 1))
+
+p7_fit <- aov(y ~ trt + block, data = p7_df)
+summary(p7_fit)
+```
+
+**Note:** The block SS is computed after adjusting for treatments (or vice versa). For proper BIBD analysis, use `agricolae::BIB.test()`:
+
+```{r eval=FALSE}
+agricolae::BIB.test(
+  block = p7_df$block,
+  trt   = p7_df$trt,
+  y     = p7_df$y,
+  test  = "tukey"
+)
+```
+
+## 7.4 BIBD summary
+
+| Property | Value |
+|---|---|
+| Block size | Less than number of treatments |
+| Requirement | Balanced (all pairs appear equally often) |
+| Analysis | Adjusted for block structure |
+| Use case | When block capacity is limited |
+
+---
+
+# Part 8 — Full Factorial Designs
+
+## 8.1 What it is
+
+- Two or more treatment factors crossed.
+- All combinations of levels are tested.
+- Each factor can be between-subjects or within-subjects.
+- Analysis: factorial ANOVA.
+
+## 8.2 2^k factorial
+
+```{r}
+# --- Self-contained: 2^3 factorial ---
+set.seed(801)
+p8_df <- expand.grid(
+  A = factor(c("-", "+")),
+  B = factor(c("-", "+")),
+  C = factor(c("-", "+"))
+) %>%
+  slice(rep(1:n(), each = 5)) %>%
+  mutate(
+    y = 10 + 2 * (A == "+") + 1 * (B == "+") - 1.5 * (C == "+") +
+        0.8 * (A == "+") * (B == "+") + rnorm(n(), 0, 1)
+  )
+
+p8_fit <- aov(y ~ A * B * C, data = p8_df)
+summary(p8_fit)
+```
+
+**Output:** One row for each main effect (A, B, C), each 2-way interaction (A:B, A:C, B:C), and the 3-way interaction (A:B:C).
+
+**Report:** "Factorial ANOVA shows a significant main effect of A, F(1, 32) = ..., p < ..., and a significant A×B interaction, F(1, 32) = ..., p < ... . No other effects are significant."
+
+## 8.3 2^3 with blocking
+
+```{r}
+# --- Self-contained: 2^3 factorial with blocks ---
+set.seed(802)
+p8_df <- expand.grid(
+  block = factor(1:4),
+  A = factor(c("-", "+")),
+  B = factor(c("-", "+")),
+  C = factor(c("-", "+"))
+) %>%
+  mutate(y = 10 + 2 * (A == "+") + (B == "+") +
+             rnorm(n(), 0, 1))
+
+p8_fit <- aov(y ~ block + A * B * C, data = p8_df)
+summary(p8_fit)
+```
+
+## 8.4 Interaction plots
+
+```{r}
+# --- Self-contained: interaction plot ---
+set.seed(803)
+p8_df <- expand.grid(
+  A = factor(c("low", "high")),
+  B = factor(c("low", "high"))
+) %>%
+  slice(rep(1:n(), each = 10)) %>%
+  mutate(y = 10 + 2 * (A == "high") + (B == "high") +
+            1.5 * (A == "high") * (B == "high") + rnorm(n(), 0, 1))
+
+ggplot(p8_df, aes(A, y, color = B, group = B)) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  stat_summary(fun = mean, geom = "line") +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.1) +
+  theme_minimal() +
+  labs(title = "Interaction plot")
+```
+
+**Look for:** crossing or diverging lines → interaction. Parallel lines → no interaction.
+
+## 8.5 Factorial design summary
+
+| Property | Value |
+|---|---|
+| Factors | 2+ |
+| Levels per factor | Any (2, 3, ...) |
+| Design type | Full factorial |
+| Total treatment combinations | Product of levels |
+| Analysis | Factorial ANOVA |
+| Key feature | Tests interactions |
+
+## 8.6 When to use
+
+- You want to test main effects AND interactions.
+- You can afford to run all combinations.
+- You have enough replicates per cell.
+
+---
+
+# Part 9 — Fractional Factorial Designs
+
+## 9.1 What it is
+
+- A **subset** of the full factorial combinations.
+- Used when the number of factors is large and full factorial is too expensive.
+- Some effects are **aliased** (confounded) with others.
+- Denoted $2^{k-p}$ — a $1/2^p$ fraction of the $2^k$ design.
+
+## 9.2 Resolution
+
+The **resolution** of a fractional factorial describes which effects are aliased:
+
+| Resolution | Aliasing rule |
+|---|---|
+| **III** | Main effects aliased with 2-way interactions |
+| **IV** | Main effects aliased with 3-way interactions; 2-way aliased with 2-way |
+| **V** | Main effects aliased with 4-way interactions; 2-way aliased with 3-way |
+
+**Rule of thumb:** Use Resolution V if possible, Resolution IV for screening, Resolution III for very early screening.
+
+
+
+
+## 9.3 Generate the design
+
+```{r}
+# --- Self-contained: 2^(4-1) fractional factorial ---
+set.seed(901)
+p9_design <- FrF2::FrF2(nruns = 8, nfactors = 4, replications = 3)
+p9_df <- as_tibble(p9_design) %>%
+  mutate(
+    y = 10 + 2 * (A == "1") + (B == "1") - (C == "1") +
+        rnorm(n(), 0, 1)
+  )
+head(p9_df)
+```
+What the columns are:
+
+    A, B, C, D are the four factors (levels -1 / 1).
+
+    run is the standard order within each replicate.
+
+    replications = 3 gives 3 independent runs per treatment combination.
+
+    The design is Resolution IV because the generator is D = A*B*C, giving defining relation I = ABCD.
+
+9.4 Aliasing structure
+
+The aliasing is fixed by the generator. For a 2^(4-1) design with D = ABC:
+Effect	Aliased with
+A	B×C×D
+B	A×C×D
+C	A×B×D
+D	A×B×C
+A×B	C×D
+A×C	B×D
+A×D	B×C
+
+Why: The defining relation is I = ABCD. Multiplying any effect by the defining relation gives its alias.
+
+To confirm the resolution from R:
+```{r}
+
+# --- Self-contained: confirm resolution from the design ---
+set.seed(901)
+p9_design <- FrF2::FrF2(nruns = 8, nfactors = 4)
+
+# Fit a model that includes all main effects and 2-way interactions
+p9_wide <- as_tibble(p9_design) %>%
+  mutate(y = 10 + 2 * (A == "1") + (B == "1") - (C == "1") + rnorm(n(), 0, 1))
+
+p9_saturated <- lm(y ~ (A + B + C + D)^2, data = p9_wide)
+
+# stats::alias shows which effects are aliased
+stats::alias(p9_saturated)
+```
+What the output tells you: The Complete column lists which effects are aliased with each other. For a Res IV design, main effects are aliased only with 3-way interactions (which are assumed negligible), so main-effect p-values are trustworthy.
+
+
+9.5 Analysis
+```{r}
+
+# --- Self-contained: fractional factorial analysis ---
+set.seed(902)
+p9_design <- FrF2::FrF2(nruns = 8, nfactors = 4, replications = 3)
+p9_df <- as_tibble(p9_design) %>%
+  mutate(
+    y = 10 + 2 * (A == "1") + (B == "1") - (C == "1") + rnorm(n(), 0, 1)
+  )
+
+# Fit main effects only (higher-order interactions assumed negligible)
+p9_fit <- lm(y ~ A + B + C + D, data = p9_df)
+anova(p9_fit)
+```
+Interpretation: "Main effect A is significant. Since the design is Resolution IV, A is aliased only with the B×C×D interaction, which is assumed negligible. Main-effect tests are therefore valid."
+
+
+
+
+
+
+## 9.6 Fractional factorial summary
+
+| Property | Value |
+|---|---|
+| Total runs | $2^{k-p}$ |
+| Resolution | III, IV, or V |
+| Key trade-off | Efficiency vs aliasing |
+| Analysis | Regression on main effects and unaliased interactions |
+| Use case | Screening many factors |
+
+## 9.7 Blocking in factorial designs
+
+Factorial designs can be blocked like any other design:
+
+```{r}
+# --- Self-contained: blocked 2^2 design ---
+set.seed(903)
+p9_df <- expand.grid(
+  block = factor(1:3),
+  A = factor(c("-", "+")),
+  B = factor(c("-", "+"))
+) %>%
+  slice(rep(1:n(), each = 2)) %>%
+  mutate(y = 10 + (A == "+") + (B == "+") + rnorm(n(), 0, 1))
+
+p9_fit <- aov(y ~ block + A * B, data = p9_df)
+summary(p9_fit)
+```
+
+In fractional factorials, blocks are usually chosen so that block effects are aliased with higher-order interactions (not main effects).
+
+---
+
+# Part 10 — Split-Plot Designs
+
+## 10.1 What it is
+
+- Used when some factors are **hard to change** (whole-plot factors) and others are **easy to change** (split-plot factors).
+- The whole-plot factor is applied to large units (whole plots).
+- The split-plot factor is applied to smaller units within each whole plot.
+- Each whole-plot factor level is applied to a whole-plot; each split-plot factor is applied within it.
+
+**Classic example:** Agriculture — irrigation method (hard to change) is the whole-plot factor; fertilizer type (easy to change) is the split-plot factor.
+
+## 10.2 Two error terms
+
+Split-plot designs have **two error strata**:
+
+- **Whole-plot error** — variation among whole plots within a whole-plot treatment.
+- **Split-plot error** — variation among subplots within whole plots.
+
+**Correct F-tests:**
+
+| Effect | Denominator |
+|---|---|
+| Whole-plot main effect | Whole-plot error |
+| Split-plot main effect | Split-plot error |
+| Whole × split interaction | Split-plot error |
+
+## 10.3 Generate and analyze
+
+```{r}
+# --- Self-contained: split-plot design ---
+set.seed(1001)
+p10_df <- expand.grid(
+  block      = factor(1:4),
+  whole      = factor(c("W1", "W2")),
+  split      = factor(c("S1", "S2", "S3"))
+) %>%
+  mutate(y = 10 + 2 * (whole == "W2") + (split == "S2") +
+            2 * (split == "S3") +
+            1.5 * (whole == "W2") * (split == "S3") +
+            rep(rnorm(8, 0, 1.5), each = 3) +
+            rnorm(24, 0, 1))
+
+p10_fit <- aov(y ~ whole * split + Error(block / whole), data = p10_df)
+summary(p10_fit)
+```
+
+**Output has two strata:**
+
+```
+Error: block:whole
+          Df Sum Sq Mean Sq F value Pr(>F)
+whole      1  ...     ...
+Residuals  6  ...
+
+Error: Within
+          Df Sum Sq Mean Sq F value Pr(>F)
+split       2  ...     ...
+whole:split 2  ...     ...
+Residuals 18  ...     ...
+```
+
+- **Whole-plot main effect** tested against `Error: block:whole` residual.
+- **Split-plot main effect and interaction** tested against `Error: Within` residual.
+
+## 10.4 Split-plot with lmer
+
+```{r}
+# --- Self-contained: split-plot with lmer ---
+set.seed(1002)
+p10_df <- expand.grid(
+  block = factor(1:4),
+  whole = factor(c("W1", "W2")),
+  split = factor(c("S1", "S2", "S3"))
+) %>%
+  mutate(y = 10 + 2 * (whole == "W2") + (split == "S2") +
+            2 * (split == "S3") +
+            1.5 * (whole == "W2") * (split == "S3") +
+            rep(rnorm(8, 0, 1.5), each = 3) +
+            rnorm(24, 0, 1))
+
+p10_fit_lmer <- lmer(y ~ whole * split + (1 | block:whole), data = p10_df)
+anova(p10_fit_lmer)
+```
+
+## 10.5 Split-plot summary
+
+| Property | Value |
+|---|---|
+| Whole-plot factor | Hard to change |
+| Split-plot factor | Easy to change |
+| Randomization | Whole plots then split plots |
+| Error terms | 2 (whole-plot + split-plot) |
+| F-test denominators | Different for each effect |
+| Key risk | Using the wrong error term |
+
+## 10.6 Split-split-plot and strip-plot
+
+- **Split-split-plot:** a split-plot factor is further split into sub-sub-plots. Three error terms.
+- **Strip-plot:** whole-plot treatments applied in strips crossing each other. Two whole-plot error terms.
+
+---
+
+# Part 11 — Nested vs Crossed Designs
+
+## 11.1 Crossed design
+
+- Every level of factor A is tested with every level of factor B.
+- Analysis: `aov(y ~ A * B)`.
+
+**Example:** 3 drugs × 2 doses — every drug is tested at every dose.
+
+## 11.2 Nested design
+
+- Levels of B are **unique** within each level of A.
+- B is nested within A. Denoted B(A).
+- Analysis: `aov(y ~ A + Error(A/B))` or `lmer(y ~ A + (1|A:B))`.
+
+**Example:** Schools and classes — each class belongs to exactly one school.
+
+## 11.3 Example
+
+```{r}
+# --- Self-contained: nested design ---
+set.seed(1101)
+p11_df <- tibble(
+  school  = factor(rep(c("S1", "S2", "S3"), each = 6)),
+  teacher = factor(rep(1:6, times = 3)),   # unique to each school
+  y       = 10 + as.numeric(school) * 2 +
+            rep(rnorm(3, 0, 1), each = 6) +
+            rnorm(18, 0, 1)
+)
+
+# Incorrect: crossed
+p11_fit_crossed <- aov(y ~ school + teacher, data = p11_df)
+# Correct: nested
+p11_fit_nested <- aov(y ~ school + Error(school / teacher), data = p11_df)
+summary(p11_fit_nested)
+```
+
+## 11.4 Nested vs crossed summary
+
+| | Crossed | Nested |
+|---|---|---|
+| Design | A × B | A + B(A) |
+| Every A×B seen | Yes | No (B unique to A) |
+| R formula | `A * B` | `A + Error(A/B)` |
+| Use case | Factorial | Hierarchical |
+
+---
+
+# Part 12 — Crossover Designs
+
+## 12.1 What it is
+
+- Each subject receives **multiple treatments** in sequence.
+- Common in clinical trials: each patient gets treatment A, then B (or B, then A).
+- Uses subjects as their own controls.
+
+**Model (2×2 crossover):** $y_{ijk} = \mu + \text{treatment}_k + \text{period}_j + \text{subject}_i + \varepsilon_{ijk}$
+
+## 12.2 2×2 crossover
+
+```{r}
+# --- Self-contained: 2x2 crossover ---
+set.seed(1201)
+p12_df <- expand.grid(
+  subject = factor(1:20),
+  period  = factor(c("P1", "P2"))
+) %>%
+  mutate(
+    sequence = rep(rep(c("AB", "BA"), each = 2), 10),
+    treatment = case_when(
+      sequence == "AB" & period == "P1" ~ "A",
+      sequence == "AB" & period == "P2" ~ "B",
+      sequence == "BA" & period == "P1" ~ "B",
+      sequence == "BA" & period == "P2" ~ "A"
+    ),
+    y = 10 + 2 * (treatment == "B") + rep(rnorm(20, 0, 1), each = 2) +
+        rnorm(40, 0, 1)
+  )
+
+p12_fit <- lmer(y ~ treatment + period + (1 | subject), data = p12_df)
+anova(p12_fit)
+```
+
+## 12.3 Crossover summary
+
+| Property | Value |
+|---|---|
+| Randomization | Sequence order |
+| Blocking | Subject |
+| Key risk | Carryover effects (need washout) |
+| Analysis | Mixed model with subject random effect |
+
+---
+
+# Part 13 — Repeated Measures ANOVA
+
+## 13.1 What it is
+
+- Same subjects measured multiple times.
+- Time is a **within-subject** factor.
+- Analysis: `aov(y ~ time + Error(subject/time))` or `lmer`.
+
+## 13.2 Fit and report
+
+```{r}
+# --- Self-contained: one-factor RM ANOVA ---
+set.seed(1301)
+p13_df <- expand.grid(
+  subject = factor(1:10),
+  time    = factor(c("t1", "t2", "t3"), levels = c("t1", "t2", "t3"))
+) %>%
+  mutate(y = 10 + as.numeric(time) * 2 +
+             rep(rnorm(10, 0, 1), each = 3) +
+             rnorm(30, 0, 1))
+
+p13_fit <- aov(y ~ time + Error(subject / time), data = p13_df)
+summary(p13_fit)
+```
+
+## 13.3 Reading the output
+
+```
+Error: subject
+          Df Sum Sq Mean Sq F value Pr(>F)
+Residuals  9  ...
+
+Error: subject:time
+          Df Sum Sq Mean Sq F value Pr(>F)
+time       2  ...     ...
+Residuals 18  ...
+```
+
+**Report the F-test in the `Error: subject:time` stratum.** The top stratum is between-subject variability.
+
+## 13.4 Sphericity and corrections
+
+**Sphericity:** equal variances of all pairwise differences. Violated → inflated Type I error.
+
+```{r}
+# --- Self-contained: afex sphericity corrections ---
+set.seed(1302)
+p13_df <- expand.grid(
+  subject = factor(1:10),
+  time    = factor(c("t1", "t2", "t3"), levels = c("t1", "t2", "t3"))
+) %>%
+  mutate(y = 10 + as.numeric(time) * 2 +
+             rep(rnorm(10, 0, 1), each = 3) +
+             rnorm(30, 0, 1))
+
+p13_afex <- afex::aov_ez(
+  id     = "subject",
+  dv     = "y",
+  data   = as.data.frame(p13_df),
+  within = "time"
+)
+summary(p13_afex)
+```
+
+`afex` reports **Greenhouse-Geisser** and **Huynh-Feldt** corrections automatically.
+
+## 13.5 lmer alternative
+
+```{r}
+# --- Self-contained: lmer for RM ---
+set.seed(1303)
+p13_df <- expand.grid(
+  subject = factor(1:10),
+  time    = factor(c("t1", "t2", "t3"), levels = c("t1", "t2", "t3"))
+) %>%
+  mutate(y = 10 + as.numeric(time) * 2 +
+             rep(rnorm(10, 0, 1), each = 3) + rnorm(30, 0, 1))
+
+p13_fit_lmer <- lmer(y ~ time + (1 | subject), data = p13_df)
+anova(p13_fit_lmer)
+```
+
+**When to prefer lmer:** missing data, unbalanced, random slopes.
+
+---
+
+# Part 14 — Mixed Designs (Between + Within)
+
+## 14.1 What it is
+
+- One or more **between-subject** factors (subjects in one group only).
+- One or more **within-subject** factors (each subject measured multiple times).
+- Analysis: `aov(y ~ between * within + Error(subject/within))`.
+
+## 14.2 Fit and report
+
+```{r}
+# --- Self-contained: mixed design ---
+set.seed(1401)
+p14_df <- expand.grid(
+  subject = factor(1:20),
+  time    = factor(c("pre", "post"), levels = c("pre", "post"))
+) %>%
+  mutate(
+    group = factor(rep(rep(c("control", "treat"), each = 10), 2)),
+    y = 10 + 2 * (time == "post") + 3 * (group == "treat") +
+        2 * (time == "post") * (group == "treat") +
+        rep(rnorm(20, 0, 1), each = 2) + rnorm(40, 0, 1)
+  )
+
+p14_fit <- aov(y ~ group * time + Error(subject / time), data = p14_df)
+summary(p14_fit)
+```
+
+## 14.3 Reading the output
+
+```
+Error: subject
+          Df Sum Sq Mean Sq F value Pr(>F)
+group      1  ...     ...
+Residuals 18  ...
+
+Error: subject:time
+          Df Sum Sq Mean Sq F value Pr(>F)
+time       1  ...     ...
+group:time 1  ...     ...
+Residuals 18  ...
+```
+
+| Effect | Stratum |
+|---|---|
+| `group` (between) | `Error: subject` |
+| `time` (within) | `Error: subject:time` |
+| `group:time` | `Error: subject:time` |
+
+## 14.4 Mixed-design summary
+
+| Property | Value |
+|---|---|
+| Between-subject factor | e.g., group |
+| Within-subject factor | e.g., time |
+| Randomization | Subjects to groups |
+| Multiple error terms | Yes |
+| F-test denominators | Depends on effect |
+
+---
+
+# Part 15 — Fixed vs Random Effects
+
+## 15.1 The distinction
+
+| Aspect | Fixed effect | Random effect |
+|---|---|---|
+| Levels | All levels of interest | Random sample from population |
+| Inference | To the tested levels only | To the population |
+| Effect on variance | Affects mean | Affects variance |
+| Typical examples | Treatment, dose, sex | Subject, batch, site |
+| R syntax (`lmer`) | `y ~ treatment` | `y ~ (1 | subject)` |
+
+## 15.2 Why it matters
+
+- **F-test denominator changes.** Fixed effects are often tested against residual error; random effects may have different error terms.
+- **Estimation method differs.** Fixed effects use OLS; random effects use GLS / REML.
+- **Interpretation differs.** Fixed: "the effect of treatment A vs B." Random: "the variance among subjects."
+
+## 15.3 Mixed models
+
+Models with both fixed and random effects are called **mixed models**.
+
+```{r}
+# --- Self-contained: mixed model ---
+set.seed(1501)
+p15_df <- expand.grid(
+  subject = factor(1:20),
+  time    = factor(c("t1", "t2", "t3"), levels = c("t1", "t2", "t3"))
+) %>%
+  mutate(y = 10 + as.numeric(time) * 1.5 +
+             rep(rnorm(20, 0, 1), each = 3) + rnorm(60, 0, 1))
+
+# time is fixed; subject is random
+p15_fit <- lmer(y ~ time + (1 | subject), data = p15_df)
+summary(p15_fit)
+```
+
+## 15.4 Rule of thumb
+
+- If you care about **specific levels** → fixed.
+- If the levels are a **sample** from a larger population → random.
+- If you want to **generalize** beyond the tested levels → random.
+- If you want to test **specific contrasts** → fixed.
+
+## 15.5 Mixed-model terminology
+
+| Term | Meaning |
+|---|---|
+| **Fixed effect** | Population-level effect |
+| **Random intercept** | Each group has its own baseline |
+| **Random slope** | Each group has its own slope on a predictor |
+| **Crossed random effects** | Groups that can appear in multiple categories |
+| **Nested random effects** | Groups within groups |
+
+---
+
+# Part 16 — Expected Mean Squares (EMS)
+
+## 16.1 Why EMS matters
+
+The **Expected Mean Square** tells you which error term to use as the denominator for each F-test. Choosing the wrong denominator gives wrong p-values.
+
+## 16.2 EMS table for common designs
+
+### One-way ANOVA (fixed treatment)
+
+| Source | df | EMS |
+|---|---|---|
+| Treatment | $k - 1$ | $\sigma^2 + n \sum \tau_j^2 / (k-1)$ |
+| Error | $N - k$ | $\sigma^2$ |
+
+**F-test:** $F = MS_{\text{Treat}} / MS_{\text{Error}}$.
+
+### One-way ANOVA (random treatment)
+
+| Source | df | EMS |
+|---|---|---|
+| Treatment | $k - 1$ | $\sigma^2 + n \sigma_\tau^2$ |
+| Error | $N - k$ | $\sigma^2$ |
+
+**F-test:** $F = MS_{\text{Treat}} / MS_{\text{Error}}$.
+
+**Note:** For one-way, fixed and random give the same F-test. The difference shows up in interpretation, not the ANOVA table.
+
+### Two-way factorial (A, B fixed)
+
+| Source | df | EMS |
+|---|---|---|
+| A | $a - 1$ | $\sigma^2 + nb \sum \alpha_i^2 / (a-1)$ |
+| B | $b - 1$ | $\sigma^2 + na \sum \beta_j^2 / (b-1)$ |
+| AB | $(a-1)(b-1)$ | $\sigma^2 + n \sum (\alpha\beta)_{ij}^2 / (a-1)(b-1)$ |
+| Error | $ab(n-1)$ | $\sigma^2$ |
+
+**F-tests:** All tested against $MS_{\text{Error}}$.
+
+### Two-way factorial (A fixed, B random)
+
+| Source | df | EMS |
+|---|---|---|
+| A | $a - 1$ | $\sigma^2 + n \sigma_{\alpha\beta}^2 + nb \sum \alpha_i^2 / (a-1)$ |
+| B | $b - 1$ | $\sigma^2 + na \sigma_\beta^2$ |
+| AB | $(a-1)(b-1)$ | $\sigma^2 + n \sigma_{\alpha\beta}^2$ |
+| Error | $ab(n-1)$ | $\sigma^2$ |
+
+**F-tests:**
+- A: $F = MS_A / MS_{AB}$ (because $MS_{AB}$ has the extra term)
+- B: $F = MS_B / MS_{\text{Error}}$
+- AB: $F = MS_{AB} / MS_{\text{Error}}$
+
+**Key takeaway:** For mixed models with a random factor, main effects are often tested against the interaction MS instead of the residual.
+
+### Split-plot (A whole-plot fixed, B split-plot fixed)
+
+| Source | df | EMS | F denominator |
+|---|---|---|---|
+| A | $a - 1$ | $\sigma^2_W + b \sigma^2_{\text{WP}} + rb \sum \alpha_i^2 / (a-1)$ | Whole-plot error |
+| WP error | $(r-1)(a-1)$ | $\sigma^2_W + b \sigma^2_{\text{WP}}$ | — |
+| B | $b - 1$ | $\sigma^2_W + ra \sum \beta_j^2 / (b-1)$ | Split-plot error |
+| AB | $(a-1)(b-1)$ | $\sigma^2_W + r \sum (\alpha\beta)^2 / (a-1)(b-1)$ | Split-plot error |
+| SP error | $a(b-1)(r-1)$ | $\sigma^2_W$ | — |
+
+## 16.3 EMS summary
+
+| Design | Effect | Denominator |
+|---|---|---|
+| One-way fixed | Treatment | Error |
+| Two-way all fixed | A, B, AB | Error |
+| Two-way A fixed, B random | A | AB |
+| Two-way A fixed, B random | B, AB | Error |
+| Split-plot | Whole-plot factor | Whole-plot error |
+| Split-plot | Split-plot factor, interaction | Split-plot error |
+| Nested | Fixed | Depends on structure |
+| RM ANOVA | Time | Subject × time error |
+
+**Rule:** If a random effect appears in the EMS of an effect **but not** in the EMS of another, the latter can be used as the error term.
+
+---
+
+# Part 17 — Power and Sample Size
+
+## 17.1 Key parameters
+
+- **Effect size:** standardized difference (Cohen's d, f, η²).
+- **Significance level α:** usually 0.05.
+- **Power 1 − β:** usually 0.80 (80%).
+- **Sample size n:** what you solve for.
+
+## 17.2 Power for one-way ANOVA
+
+```{r}
+# --- Self-contained: one-way power ---
+pwr.anova.test(k = 3, n = 20, f = 0.25, sig.level = 0.05)
+```
+
+**Arguments:** `k` = groups, `n` = per group, `f` = Cohen's f.
+
+**Interpretation:** "With 3 groups, 20 per group, and medium effect size (f = 0.25), power is 55%."
+
+## 17.3 Sample size needed
+
+```{r}
+# --- Self-contained: sample size for 80% power ---
+pwr.anova.test(k = 3, f = 0.25, sig.level = 0.05, power = 0.80)
+```
+
+**Output:** n = 52.4 → need 53 per group.
+
+## 17.4 Power for factorial designs
+
+```{r}
+# --- Self-contained: power for 2x2 factorial ---
+pwr.f2.test(u = 1, v = 76, f2 = 0.0625, sig.level = 0.05)
+```
+
+**Arguments:**
+- `u`: numerator df (1 for a 2-level main effect).
+- `v`: denominator df (residual df).
+- `f2 = f^2` where f is Cohen's f.
+
+## 17.5 Power for RCBD
+
+Blocking usually increases power by reducing error variance. Rule of thumb: if blocks explain ≥ 20% of variance, blocking is worth it.
+
+## 17.6 Power for RM
+
+```{r}
+# --- Self-contained: power for paired design ---
+pwr.t.test(d = 0.5, sig.level = 0.05, power = 0.80, type = "paired")
+```
+
+## 17.7 Post-hoc power
+
+```{r}
+# --- Self-contained: post-hoc power ---
+pwr.anova.test(k = 3, n = 20, f = 0.30, sig.level = 0.05)
+```
+
+**Warning:** Post-hoc power is monotonically related to the p-value — it adds little information. Prefer reporting effect size and CI.
+
+## 17.8 Effect size benchmarks
+
+| Measure | Small | Medium | Large |
+|---|---|---|---|
+| Cohen's d | 0.20 | 0.50 | 0.80 |
+| Cohen's f | 0.10 | 0.25 | 0.40 |
+| η² | 0.01 | 0.06 | 0.14 |
+| ω² | 0.01 | 0.06 | 0.14 |
+
+---
+
+# Part 18 — Blocking Efficiency
+
+## 18.1 Why blocking helps
+
+Blocking removes the block-to-block variation from the error term. If the block effect is large, the residual SS shrinks, so the F-test for treatment is more powerful.
+
+## 18.2 Efficiency formula
+
+$$\text{Relative Efficiency} = \frac{MS_{\text{Error(CRD)}}}{MS_{\text{Error(RCBD)}}} = \frac{(b-1) MS_{\text{Block}} + b(k-1) MS_{\text{Error}}}{(bk - 1) MS_{\text{Error}}}$$
+
+where $b$ = blocks, $k$ = treatments.
+
+**Interpretation:** If RE = 2, RCBD is equivalent to running a CRD with **twice** the sample size.
+
+## 18.3 Computing in R
+
+```{r}
+# --- Self-contained: blocking efficiency ---
+set.seed(1801)
+p18_df <- expand.grid(
+  block     = factor(1:6),
+  treatment = factor(c("A", "B", "C", "D"))
+) %>%
+  mutate(y = 10 + c(A = 0, B = 2, C = 4, D = 6)[as.character(treatment)] +
+             rep(c(-1, -0.5, 0, 0.5, 1, 1.5), each = 4) +
+             rnorm(24, 0, 1))
+
+p18_rcbd <- aov(y ~ treatment + block, data = p18_df)
+p18_crd  <- aov(y ~ treatment, data = p18_df)
+
+anova(p18_crd)
+anova(p18_rcbd)
+
+b <- 6; k <- 4
+MSB <- anova(p18_rcbd)["block", "Mean Sq"]
+MSE <- anova(p18_rcbd)["Residuals", "Mean Sq"]
+RE <- ((b - 1) * MSB + b * (k - 1) * MSE) / ((b * k - 1) * MSE)
+RE
+```
+
+**Report:** "The blocking efficiency is 2.5, meaning the RCBD is equivalent to a CRD with 2.5× the sample size."
+
+## 18.4 When to block
+
+- Block if the nuisance factor explains > 20% of the total variation.
+- Do not block if blocks are small or inconsistent.
+- You can always test the block effect and decide.
+
+---
+
+# Part 19 — Diagnostics
+
+## 19.1 Assumptions
+
+1. **Independence** of residuals.
+2. **Normality** of residuals.
+3. **Equal variances** across groups.
+4. **Additivity** (for RCBD, split-plot).
+
+## 19.2 Checking in R
+
+```{r}
+# --- Self-contained: diagnostic checks ---
+set.seed(1901)
+p19_df <- tibble(
+  group = factor(rep(c("A", "B", "C"), each = 20)),
+  y     = c(rnorm(20, 10, 2), rnorm(20, 12, 2), rnorm(20, 15, 2))
+)
+p19_fit <- aov(y ~ group, data = p19_df)
+
+# Plots
+par(mfrow = c(2, 2))
+plot(p19_fit)
+par(mfrow = c(1, 1))
+
+# Shapiro-Wilk (normality)
+shapiro.test(residuals(p19_fit))
+
+# Levene (equal variances)
+car::leveneTest(y ~ group, data = p19_df)
+```
+
+## 19.3 Interpreting the plots
+
+| Plot | What to look for |
+|---|---|
+| Residuals vs Fitted | No pattern; no funnel shape |
+| Normal Q-Q | Points on the diagonal |
+| Scale-Location | Flat line |
+| Residuals vs Leverage | No influential points |
+
+## 19.4 What to do when assumptions fail
+
+| Problem | Fix |
+|---|---|
+| Non-normality | Transform (log, sqrt, Box-Cox); non-parametric test |
+| Unequal variances | Welch ANOVA; Games-Howell post-hoc |
+| Non-additivity in RCBD | Tukey's test for non-additivity; interaction model |
+| Outliers | Check for data errors; report with/without |
+| Non-independence | Mixed model with random effect |
+
+## 19.5 Diagnostic report template
+
+> "Shapiro-Wilk on residuals gives p = 0.31, Levene's test gives p = 0.42. The Q-Q plot shows points on the diagonal, the residual plot shows no pattern. No influential points detected. Assumptions are satisfied."
+
+---
+
+# Part 20 — Post-hoc Comparisons
+
+## 20.1 When to use which
+
+| Comparison | Method |
+|---|---|
+| All pairwise, equal n | Tukey HSD |
+| All pairwise, unequal n or variance | Games-Howell |
+| Few comparisons | Bonferroni |
+| Compare to control | Dunnett |
+| Trend across ordered levels | Orthogonal polynomials |
+| Simple effects in factorial | `emmeans(~A \| B)` |
+
+## 20.2 Tukey HSD
+
+```{r}
+# --- Self-contained: Tukey HSD ---
+set.seed(2001)
+p20_df <- tibble(
+  group = factor(rep(c("A", "B", "C", "D"), each = 10)),
+  y = 10 + c(0, 2, 4, 6)[rep(1:4, each = 10)] + rnorm(40, 0, 1.5)
+)
+p20_fit <- aov(y ~ group, data = p20_df)
+
+TukeyHSD(p20_fit)
+```
+
+## 20.3 Bonferroni
+
+```{r}
+# --- Self-contained: Bonferroni ---
+set.seed(2002)
+p20_df <- tibble(
+  group = factor(rep(c("A", "B", "C", "D"), each = 10)),
+  y = 10 + c(0, 2, 4, 6)[rep(1:4, each = 10)] + rnorm(40, 0, 1.5)
+)
+pairwise.t.test(p20_df$y, p20_df$group, p.adjust.method = "bonferroni")
+```
+
+## 20.4 emmeans (recommended)
+
+```{r}
+# --- Self-contained: emmeans with different adjustments ---
+set.seed(2003)
+p20_df <- tibble(
+  group = factor(rep(c("A", "B", "C", "D"), each = 10)),
+  y = 10 + c(0, 2, 4, 6)[rep(1:4, each = 10)] + rnorm(40, 0, 1.5)
+)
+p20_fit <- aov(y ~ group, data = p20_df)
+p20_emm <- emmeans(p20_fit, ~ group)
+
+pairs(p20_emm, adjust = "tukey")
+pairs(p20_emm, adjust = "bonferroni")
+pairs(p20_emm, adjust = "holm")
+pairs(p20_emm, adjust = "none")   # unadjusted (for planned contrasts)
+```
+
+## 20.5 Games-Howell (unequal variances)
+
+```{r}
+# --- Self-contained: Games-Howell ---
+set.seed(2004)
+p20_df <- tibble(
+  group = factor(rep(c("A", "B", "C"), each = 15)),
+  y = c(rnorm(15, 10, 1), rnorm(15, 12, 3), rnorm(15, 15, 5))
+)
+rstatix::games_howell_test(p20_df, y ~ group)
+```
+
+## 20.6 Simple effects for interactions
+
+```{r}
+# --- Self-contained: simple effects ---
+set.seed(2005)
+p20_df <- expand.grid(
+  A = factor(c("a1", "a2")),
+  B = factor(c("b1", "b2"))
+) %>%
+  slice(rep(1:n(), each = 20)) %>%
+  mutate(y = 10 + 2 * (A == "a2") + (B == "b2") +
+            3 * (A == "a2") * (B == "b2") + rnorm(n(), 0, 1))
+
+p20_fit <- aov(y ~ A * B, data = p20_df)
+p20_emm <- emmeans(p20_fit, ~ A | B)
+pairs(p20_emm, adjust = "bonferroni")
+```
+
+## 20.7 Reporting template
+
+> "Tukey HSD shows that group D differs significantly from A (mean difference 6.1, 95% CI [4.8, 7.4], p < 0.001), from B (difference 4.2, 95% CI [2.9, 5.5], p < 0.001), and from C (difference 2.1, 95% CI [0.8, 3.4], p = 0.001)."
+
+---
+
+# Part 21 — Non-parametric Alternatives
+
+## 21.1 One-way: Kruskal-Wallis
+
+```{r}
+# --- Self-contained: Kruskal-Wallis ---
+set.seed(2101)
+p21_df <- tibble(
+  group = factor(rep(c("A", "B", "C"), each = 20)),
+  y     = c(rexp(20, 1), rexp(20, 0.5), rexp(20, 0.3))
+)
+kruskal.test(y ~ group, data = p21_df)
+```
+
+**Post-hoc:** Dunn's test with Bonferroni.
+
+```{r}
+# --- Self-contained: Dunn's test ---
+set.seed(2102)
+p21_df <- tibble(
+  group = factor(rep(c("A", "B", "C"), each = 20)),
+  y     = c(rexp(20, 1), rexp(20, 0.5), rexp(20, 0.3))
+)
+rstatix::dunn_test(p21_df, y ~ group, p.adjust.method = "bonferroni")
+```
+
+## 21.2 Repeated measures: Friedman
+
+```{r}
+# --- Self-contained: Friedman test ---
+set.seed(2103)
+p21_df <- expand.grid(
+  subject = factor(1:10),
+  time    = factor(c("t1", "t2", "t3"))
+) %>%
+  mutate(y = rexp(30, 1 / (2 + as.numeric(time))))
+
+friedman.test(y ~ time | subject, data = p21_df)
+```
+
+**Post-hoc:** Wilcoxon signed-rank with Bonferroni.
+
+```{r}
+# --- Self-contained: Wilcoxon post-hoc ---
+set.seed(2104)
+p21_df <- expand.grid(
+  subject = factor(1:10),
+  time    = factor(c("t1", "t2", "t3"))
+) %>%
+  mutate(y = rexp(30, 1 / (2 + as.numeric(time))))
+
+pairwise.wilcox.test(p21_df$y, p21_df$time,
+                     paired = TRUE,
+                     p.adjust.method = "bonferroni")
+```
+
+## 21.3 Factorial non-parametric: ART
+
+```{r}
+# --- Self-contained: aligned rank transform ---
+# library(ARTool)
+# set.seed(2105)
+# p21_df <- tibble(
+#   A = factor(rep(c("a1", "a2"), each = 20)),
+#   B = factor(rep(rep(c("b1", "b2"), each = 10), 2)),
+#   y = rexp(40, 1)
+# )
+# art_fit <- art(y ~ A * B, data = p21_df)
+# anova(art_fit)
+```
+
+## 21.4 Non-parametric summary
+
+| Parametric | Non-parametric alternative |
+|---|---|
+| One-way ANOVA | Kruskal-Wallis |
+| Two-way ANOVA | ART / Friedman for RM |
+| RM ANOVA | Friedman |
+| Paired t-test | Wilcoxon signed-rank |
+| Independent t-test | Mann-Whitney |
+| Post-hoc Tukey | Dunn |
+| Post-hoc paired | Wilcoxon with correction |
+
+## 21.5 Reporting template
+
+> "Because residuals were non-normal (Shapiro-Wilk p = 0.002), Kruskal-Wallis was used instead of ANOVA. The test was significant, χ²(2) = 15.4, p < 0.001. Post-hoc Dunn's tests with Bonferroni correction show groups A and C differ significantly (p = 0.002)."
+
+---
+
+# Part 22 — Theory Q&A
+
+**Q: What are the three pillars of experimental design?**
+A: Randomization, replication, and blocking. Randomization eliminates bias, replication estimates error variance, and blocking reduces nuisance variation.
+
+**Q: Why randomize?**
+A: To eliminate systematic bias, ensure independence, and make the F-test valid. Randomization is what allows causal inference.
+
+**Q: What is the difference between an experimental unit and an observational unit?**
+A: An experimental unit is the smallest unit to which a treatment is applied independently. An observational unit is the unit on which the response is measured. They can be the same or different (e.g., measuring multiple plants in the same pot — the pot is the experimental unit).
+
+**Q: What is pseudo-replication?**
+A: Treating subsamples as independent replicates when they are actually nested within the same experimental unit. Inflates Type I error. Fix: average subsamples or use a mixed model.
+
+**Q: What is confounding?**
+A: When the effect of one factor is mixed with another. Example: if all treatment A units are in block 1 and all treatment B in block 2, treatment is confounded with block.
+
+**Q: What is the difference between a CRD and an RCBD?**
+A: CRD has no blocking; RCBD blocks on a nuisance factor. RCBD requires that each treatment appear once per block (complete block). Both test the same treatment effect, but RCBD has higher power if the block effect is large.
+
+**Q: When would you use a Latin Square?**
+A: When you have two nuisance factors that are both likely to affect the response, and when the number of levels of each nuisance factor equals the number of treatments.
+
+**Q: What is a factorial design?**
+A: A design in which two or more factors are crossed, so that all combinations of levels are tested. The main advantage is the ability to detect interactions.
+
+**Q: What is an interaction?**
+A: When the effect of one factor depends on the level of another. Significant interaction means main effects cannot be interpreted in isolation.
+
+**Q: What is a fractional factorial?**
+A: A subset of the full factorial runs, used when full factorial is impractical. Some effects are aliased with others. The resolution describes which effects are aliased.
+
+**Q: What is the resolution of a fractional factorial?**
+A: Resolution III: main effects aliased with 2-way interactions. Resolution IV: main effects aliased with 3-way interactions. Resolution V: main effects aliased with 4-way interactions. Higher resolution is better.
+
+**Q: What is a split-plot design?**
+A: A design with two sizes of experimental units: whole plots and split plots. Used when some factors are hard to change (whole-plot) and others are easy to change (split-plot). Has two error terms.
+
+**Q: Why does split-plot need two error terms?**
+A: Because the whole-plot factor is applied to larger units (more error variance) and the split-plot factor to smaller units (less error variance). Using one error term for both would give wrong F-tests.
+
+**Q: What is a nested design?**
+A: A design in which the levels of one factor are unique within the levels of another. Example: classes nested within schools. Analysis uses a nested error term.
+
+**Q: What's the difference between crossed and nested?**
+A: Crossed: every level of A is tested with every level of B. Nested: B is unique within A. Crossed designs can estimate A×B interactions; nested designs cannot.
+
+**Q: What is a crossover design?**
+A: A design in which each subject receives multiple treatments in sequence. Used in clinical trials. Key risk: carryover effects (need washout).
+
+**Q: What is a fixed effect?**
+A: An effect where the levels are chosen specifically and inference is only to those levels.
+
+**Q: What is a random effect?**
+A: An effect where the levels are a random sample from a larger population and inference extends to that population.
+
+**Q: What is a mixed model?**
+A: A model with both fixed and random effects. Used for repeated measures, hierarchical data, and complex designs.
+
+**Q: What is EMS and why does it matter?**
+A: Expected Mean Square. It tells you which error term to use as the F-test denominator. Choosing the wrong denominator gives wrong p-values.
+
+**Q: When do you use a random effect for block?**
+A: When the blocks are a sample from a larger population and you want to generalize. Use fixed block effects if blocks are specifically chosen.
+
+**Q: What is power and how does it relate to sample size?**
+A: Power is the probability of detecting a true effect. It increases with sample size, effect size, and α. Standard target: 80% power.
+
+**Q: What is blocking efficiency?**
+A: The ratio of error MS in a CRD to error MS in the corresponding RCBD. If RE > 1, RCBD is more efficient. Rule of thumb: block if the nuisance factor explains > 20% of variance.
+
+**Q: What is the difference between a split-plot and a repeated measures design?**
+A: Split-plot has two sizes of experimental units; repeated measures has the same subjects measured multiple times. Both have within-subject factors, but split-plot is about hard-to-change factors while RM is about time or conditions.
+
+**Q: When should you use Type III SS?**
+A: When the design is unbalanced (unequal cell sizes). Type III tests each effect after all others. Use `car::Anova(fit, type = "III")`.
+
+**Q: When should you use a non-parametric alternative?**
+A: When residuals are non-normal (and n is small) or when the response is ordinal. Use Kruskal-Wallis for independent groups, Friedman for repeated measures.
+
+---
+
+# Part 23 — Exam Scenarios
+
+## 23.1 You are given a table of data and asked to analyze
+
+1. **Read** the data (`read_excel`, `read_csv`).
+2. **Identify** the design (look at the layout).
+3. **Convert** types: factors with explicit reference.
+4. **Fit** with the appropriate model.
+5. **Check** assumptions.
+6. **Post-hoc** if significant.
+7. **Report** in words.
+
+## 23.2 "Design an experiment to test X"
+
+1. **State** the treatment factor and levels.
+2. **State** the experimental unit.
+3. **Choose** the design (CRD, RCBD, factorial, ...).
+4. **Randomize** the assignment.
+5. **Replicate** enough for power.
+6. **Analyze** with the corresponding model.
+
+## 23.3 "Test if factor A affects the response"
+
+1. Fit `aov(y ~ A)` (or with covariates / blocks).
+2. Read the F-test for A.
+3. Report F, df, p.
+4. Post-hoc if significant.
+5. Report effect size.
+
+## 23.4 "Compare 4 groups"
+
+1. `aov(y ~ group)`.
+2. If F significant, `TukeyHSD` or `emmeans`.
+3. Report pairwise differences with CIs.
+
+## 23.5 "Test interaction between A and B"
+
+1. Fit `aov(y ~ A * B)`.
+2. Look at the `A:B` row.
+3. If significant, do simple effects: `emmeans(~ A | B)`.
+4. Plot interaction.
+
+## 23.6 "Analyze a repeated measures experiment"
+
+1. Convert wide → long.
+2. Fit `aov(y ~ time + Error(subject/time))`.
+3. Read the F-test in the `subject:time` stratum.
+4. Check sphericity (afex).
+5. Post-hoc with paired comparisons.
+
+## 23.7 "Analyze a split-plot experiment"
+
+1. Identify whole-plot and split-plot factors.
+2. Fit `aov(y ~ whole * split + Error(block / whole))`.
+3. Report whole-plot F-test in the `block:whole` stratum.
+4. Report split-plot F-tests in the `Within` stratum.
+
+## 23.8 "Design and analyze a factorial experiment"
+
+1. Identify factors and levels.
+2. Choose a full or fractional factorial design.
+3. Randomize run order.
+4. Fit `aov(y ~ A * B * C)`.
+5. Report main effects and interactions.
+6. Plot interaction.
+
+## 23.9 "Blocking vs no blocking"
+
+Compute relative efficiency (Part 18). If RE > 1, blocking was helpful.
+
+## 23.10 "Choose between two designs"
+
+Compare:
+- Precision (RCBD > CRD if block effect exists).
+- df for error.
+- Feasibility (block capacity).
+- Power.
+
+---
+
+# Part 24 — Quick Reference
+
+| Task | Command |
+|---|---|
+| One-way ANOVA | `aov(y ~ g, data = df)` |
+| Two-way ANOVA | `aov(y ~ A * B, data = df)` |
+| RCBD | `aov(y ~ trt + block, data = df)` |
+| Latin Square | `aov(y ~ row + col + trt, data = df)` |
+| BIBD | `agricolae::BIB.test(block, trt, y)` |
+| Factorial with blocks | `aov(y ~ block + A * B, data = df)` |
+| Split-plot | `aov(y ~ whole * split + Error(block/whole), data = df)` |
+| RM ANOVA (1 factor) | `aov(y ~ time + Error(subject/time), data = df)` |
+| RM ANOVA (2 factors) | `aov(y ~ A * B + Error(subject/(A*B)), data = df)` |
+| Mixed design | `aov(y ~ between * within + Error(subject/within), data = df)` |
+| Mixed model | `lmer(y ~ A * B + (1 | subject), data = df)` |
+| ANCOVA | `lm(y ~ g + x, data = df)` |
+| Type III SS | `car::Anova(fit, type = "III")` |
+| Welch ANOVA | `oneway.test(y ~ g, data = df, var.equal = FALSE)` |
+| Post-hoc Tukey | `TukeyHSD(fit)` |
+| Post-hoc Bonferroni | `pairwise.t.test(y, g, p.adjust.method = "bonferroni")` |
+| Post-hoc Games-Howell | `rstatix::games_howell_test(df, y ~ g)` |
+| Adjusted means | `emmeans(fit, ~ group)` |
+| Simple effects | `emmeans(fit, ~ A | B)` |
+| Trend test | `contrasts(df$g) <- contr.poly(k)` |
+| Normality | `shapiro.test(residuals(fit))` |
+| Equal variances | `car::leveneTest(y ~ g, data = df)` |
+| Kruskal-Wallis | `kruskal.test(y ~ g, data = df)` |
+| Friedman | `friedman.test(y ~ t | s, data = df)` |
+| Effect size η²_p | `effectsize::eta_squared(fit)` |
+| Effect size ω² | `effectsize::omega_squared(fit)` |
+| Power | `pwr.anova.test(k, n, f, sig.level, power)` |
+| Design generation | `agricolae::design.crd()`, `design.rcbd()`, `design.lsd()`, `design.bib()` |
+| Fractional factorial | `FrF2::FrF2(nruns, nfactors)` |
+| Blocking efficiency | manual from ANOVA table |
+| Sphericity correction | `afex::aov_ez(...)` |
+
+---
+
+# Part 25 — Common Mistakes
+
+1. **Not randomizing** — biases results; invalidates inference.
+2. **Confusing experimental unit with observational unit** — leads to pseudo-replication.
+3. **Forgetting to block** when a nuisance factor is known and important.
+4. **Blocking on the treatment factor** — blocks must be independent of treatments.
+5. **Using one error term for split-plot** — must use two error terms.
+6. **Ignoring the aliasing structure** in fractional factorials — some effects are confounded by design.
+7. **Using `aov` without `Error()` for repeated measures** — treats within as between.
+8. **Reading the top stratum in RM output** — the F-test is in the within-subject stratum.
+9. **Forgetting to convert wide to long** before RM ANOVA.
+10. **Ignoring sphericity violation** — inflates Type I error for within factors.
+11. **Using Type I SS on unbalanced data** — use Type III.
+12. **Not checking homogeneity of slopes** in ANCOVA.
+13. **Interpreting main effects when interaction is significant** — use simple effects.
+14. **Using `TukeyHSD` for unequal variances** — use Games-Howell.
+15. **Not adjusting for multiple comparisons** — inflates Type I error.
+16. **Reporting only p-values without effect size** — p depends on n, effect size does not.
+17. **Using post-hoc on a non-significant omnibus test** — technically allowed but interpret with caution.
+18. **Ignoring the EMS** — using the wrong denominator gives wrong p-values.
+19. **Forgetting `set.seed()`** — random assignment is not reproducible.
+20. **Treating a random effect as fixed** — wrong inference and wrong F-test.
+21. **Not checking `lmer` convergence** — `isSingular()` and warnings matter.
+22. **Using `(1 + factor | subject)` with few observations per subject** — unidentifiable model.
+23. **Pseudo-replicating subsamples** — inflates Type I error.
+24. **Post-hoc blocking after data collection** — weaker than pre-planned blocking.
+25. **Not reporting degrees of freedom** — F-statistics alone are incomplete.
+
+---
+
+# Part 26 — The Single Most Important Idea
+
+**Experimental design is about controlling variation.**
+
+- **Randomize** to eliminate bias.
+- **Replicate** to estimate error.
+- **Block** to reduce nuisance variation.
+- **Choose the design** that matches the structure of the problem.
+- **Choose the model** that matches the design.
+- **Use the right error term** (from EMS) for each F-test.
+- **Report** effects, sizes, and conclusions.
+
+Every design question reduces to:
+
+1. **What is the design?**
+2. **What are the fixed and random effects?**
+3. **What is the correct error term for each effect?**
+4. **Is the effect significant?**
+5. **How large is it?**
+6. **What does it mean in practice?**
+
+If you can answer these six questions, you can design, analyze, and interpret any experiment.
+
+---
+
+*End of cheat sheet. Good luck in the competition.*
+````
+
+---
